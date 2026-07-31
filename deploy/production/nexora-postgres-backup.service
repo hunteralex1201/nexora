@@ -1,0 +1,28 @@
+[Unit]
+Description=NEXORA PostgreSQL backup
+Documentation=file:/opt/nexora/app/deploy/production/README.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=nexora
+Group=nexora
+WorkingDirectory=/opt/nexora/app
+Environment=NEXORA_APP_DIR=/opt/nexora/app
+Environment=NEXORA_BACKUP_ROOT=/var/backups/nexora/postgres
+Environment=NEXORA_BACKUP_RETENTION_DAYS=7
+ExecStart=/opt/nexora/app/deploy/production/backup-postgres.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/var/backups/nexora/postgres
+
+[Install]
+WantedBy=multi-user.target
