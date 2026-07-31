@@ -1,0 +1,34 @@
+{
+  "name": "nexora-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bangladesh-first AI commerce intelligence operating system",
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present run dev",
+    "build": "pnpm -r --if-present run build",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate:web": "pnpm --dir apps/web run validate",
+    "lint:api": "poetry --directory apps/api run ruff check .",
+    "format:api": "poetry --directory apps/api run black . && poetry --directory apps/api run ruff check . --fix",
+    "format:api:check": "poetry --directory apps/api run black --check . && poetry --directory apps/api run ruff check .",
+    "typecheck:api": "poetry --directory apps/api run mypy app main.py",
+    "test:api": "poetry --directory apps/api run pytest",
+    "validate:api": "pnpm run format:api:check && pnpm run typecheck:api && pnpm run test:api",
+    "validate": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run validate:api",
+    "audit:dependencies": "pnpm audit --audit-level high"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.9.0",
+    "pnpm": ">=10.34.5 <11"
+  },
+  "packageManager": "pnpm@10.34.5"
+}
