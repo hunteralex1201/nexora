@@ -6,7 +6,12 @@ umask 077
 APP_DIR=${NEXORA_APP_DIR:-/opt/nexora/app}
 BACKUP_ROOT=${NEXORA_BACKUP_ROOT:-/var/backups/nexora/postgres}
 RETENTION_DAYS=${NEXORA_BACKUP_RETENTION_DAYS:-7}
+DOCKER_CONFIG=${DOCKER_CONFIG:-/tmp/nexora-backup-docker}
 LOCK_FILE="$BACKUP_ROOT/.backup.lock"
+
+mkdir -p "$DOCKER_CONFIG"
+chmod 0700 "$DOCKER_CONFIG"
+export DOCKER_CONFIG
 
 if ! [[ "$RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
   printf 'NEXORA_BACKUP_RETENTION_DAYS must be a non-negative integer.\n' >&2
