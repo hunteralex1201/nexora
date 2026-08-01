@@ -1,0 +1,132 @@
+[
+  {
+    "route": "overview",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 2850,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nCOMMERCE COMMAND CENTER\n\nOverview\n\nLive product evidence, automation health, and risk signals across your NEXORA workspace.\n\nRun automation\nAdd source\nLive workspace\nUpdated Aug 1, 2026, 1:14 PM\n"
+  },
+  {
+    "route": "ai",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1110,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nPRIVATE LOCAL INTELLIGENCE\n\nAI chat\n\nReason with your configured Qwen model through a live, cancellable stream. No account sign-in is required.\n\nNew chat\nqwen3:8b ready\n0 prompts\nHow can I help?\n"
+  },
+  {
+    "route": "sources",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 846,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nDATA ACQUISITION\n\nSources\n\nConnect approved product pages or import structured files, then control collection from one operational surface.\n\nImport\nAdd source\n\nCONNECTED\n\n0\n\nACTIVE\n\n0\n\nCOLLECTIBL"
+  },
+  {
+    "route": "products",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1563,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nPRODUCT INTELLIGENCE\n\nProducts\n\nSearch tracked products, compare current evidence, and inspect price provenance from connected sources.\n\nManage sources\n\nTOTAL PRODUCTS\n\n1\n\nLOADED RECORDS\n\n1\n\nACTI"
+  },
+  {
+    "route": "market",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1508,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nEVIDENCE-BACKED ANALYSIS\n\nMarket Intelligence\n\nReview persisted local-model insights with confidence, rationale, and source provenance—never invented market metrics.\n\nRun AI analysis\n\nSAVED INSIG"
+  },
+  {
+    "route": "agents",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1858,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nWORKER CAPABILITIES\n\nAgent Operations\n\nMonitor the two implemented execution capabilities. Readiness means prerequisites are available—not that a fictional autonomous agent is continuously runnin"
+  },
+  {
+    "route": "jobs",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1818,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nEXECUTION CONTROL\n\nAutomation\n\nQueue supported collection and local-AI jobs, inspect persisted results, and retry failed runs without duplicate hidden actions.\n\nWorkflows\nRefresh\n\nACTIVE SOURCES\n"
+  },
+  {
+    "route": "workflows",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1714,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nIMPLEMENTED EXECUTION RECIPES\n\nWorkflows\n\nUnderstand how supported jobs move from trigger to persisted evidence. This is an operational map, not a fictional drag-and-drop builder.\n\nRun automation"
+  },
+  {
+    "route": "alerts",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1003,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nSIGNAL MONITORING\n\nAlerts\n\nCreate evidence-based price and availability rules, then review events generated from persisted product observations.\n\nNew alert\n\nACTIVE RULES\n\n1\n\nOPEN EVENTS\n\n0\n\nTRACK"
+  },
+  {
+    "route": "reports",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 844,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nPreparing reports"
+  },
+  {
+    "route": "integrations",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 2666,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nRUNTIME REGISTRY\n\nIntegrations\n\nInspect the connectors and automation surfaces actually implemented by this deployment. Credentials and unsupported providers are never fabricated.\n\nAdd source\n\nRE"
+  },
+  {
+    "route": "system",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1249,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nLIVE SAFE DIAGNOSTICS\n\nSystem Health\n\nInspect API liveness and required dependency probes. NEXORA intentionally does not invent uptime, CPU, memory, or storage telemetry.\n\nRun check\n\nService chec"
+  },
+  {
+    "route": "settings",
+    "settled": true,
+    "client_width": 390,
+    "scroll_width": 390,
+    "client_height": 844,
+    "scroll_height": 1765,
+    "horizontal_overflow": false,
+    "body_preview": "Skip to main content\nN\nNEXORA\nINTELLIGENCE OS\n\nCORE\n\nOverview\nAI Copilot\nLIVE\n\nINTELLIGENCE\n\nSources\nProducts\nMarket Intel\n\nOPERATIONS\n\nAgents\nAutomation\nWorkflows\n\nCONTROL\n\nAlerts\nReports\nIntegrations\nSystem health\nSettings\nLocal-first workspace\nPrivate AI · no sign-in\nN\nSearch NEXORA or run a command\n\nDEPLOYMENT PROFILE\n\nSettings\n\nReview the policies this deployment actually supports and manage local interface preferences without exposing secrets or fictional toggles.\n\nACCESS MODE\n\nOpen worksp"
+  }
+]

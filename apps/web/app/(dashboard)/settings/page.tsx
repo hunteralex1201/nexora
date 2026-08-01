@@ -1,5 +1,11 @@
-import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
+
+import { SettingsWorkspace } from '@/components/commerce/settings-workspace';
+
+export const metadata: Metadata = {
+  title: 'Settings',
+};
 
 export default function SettingsPage() {
-  redirect('/overview');
+  return <SettingsWorkspace />;
 }

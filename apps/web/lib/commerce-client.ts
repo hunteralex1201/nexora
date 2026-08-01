@@ -107,6 +107,13 @@ export interface AlertEvent {
   acknowledged_at: string | null;
 }
 
+export interface OverviewActivityPoint {
+  day: string;
+  observations: number;
+  jobs: number;
+  alerts: number;
+}
+
 export interface Overview {
   generated_at: string;
   sources: { total: number; active: number | null };
@@ -115,6 +122,7 @@ export interface Overview {
   jobs: Record<string, number>;
   alerts: Record<string, number>;
   latest_observation_at: string | null;
+  activity?: OverviewActivityPoint[];
   recent_jobs: Job[];
   recent_alerts: AlertEvent[];
 }

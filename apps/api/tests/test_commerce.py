@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.commerce import _daily_count_map
+from app.models.source import CrawlJob
 from tests.conftest import create_user
 from tests.test_auth import login
 
@@ -66,6 +69,19 @@ def _item(*, price: str, observed_at: str, evidence: str) -> dict[str, Any]:
         "attributes": {"weight": "5 kg"},
         "evidence": {"fixture": evidence},
     }
+
+
+@pytest.mark.asyncio
+async def test_daily_activity_aggregation_handles_an_empty_job_ledger(
+    db_session: AsyncSession,
+) -> None:
+    activity = await _daily_count_map(
+        db_session,
+        CrawlJob.created_at,
+        datetime(2026, 8, 1, tzinfo=UTC),
+    )
+
+    assert activity == {}
 
 
 @pytest.mark.asyncio
@@ -168,6 +184,11 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
     assert overview.json()["products"] == {"total": 1, "active": 1}
     assert overview.json()["observations"] == {"total": 2, "active": None}
     assert overview.json()["alerts"] == {"total": 1, "open": 1}
+    activity = overview.json()["activity"]
+    assert len(activity) == 14
+    assert activity[-1]["day"] == "2026-08-01"
+    assert activity[-1]["observations"] == 2
+    assert activity[-1]["alerts"] == 1
 
     acknowledge = await client.post(
         f"/api/v1/commerce/alerts/events/{event['id']}/acknowledge",

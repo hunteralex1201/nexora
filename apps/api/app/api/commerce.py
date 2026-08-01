@@ -3,7 +3,7 @@ import io
 import json
 import uuid
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
@@ -536,6 +536,22 @@ async def ai_readiness(_: AdminUser) -> AIReadinessResponse:
     )
 
 
+async def _daily_count_map(
+    db: DatabaseSession,
+    timestamp_column: Any,
+    window_start: datetime,
+) -> dict[str, int]:
+    day_expression = func.date(timestamp_column)
+    rows = (
+        await db.execute(
+            select(day_expression, func.count())
+            .where(timestamp_column >= window_start)
+            .group_by(day_expression)
+        )
+    ).all()
+    return {str(day): int(count) for day, count in rows}
+
+
 @router.get("/overview", response_model=OverviewResponse)
 async def get_overview(db: DatabaseSession, _: AdminUser) -> OverviewResponse:
     source_total = int((await db.scalar(select(func.count(Source.id)))) or 0)
@@ -565,14 +581,34 @@ async def get_overview(db: DatabaseSession, _: AdminUser) -> OverviewResponse:
             await db.scalars(select(AlertEvent).order_by(AlertEvent.triggered_at.desc()).limit(5))
         ).all()
     )
+
+    generated_at = datetime.now(UTC)
+    window_start = generated_at - timedelta(days=14)
+    observation_days = await _daily_count_map(db, ProductObservation.observed_at, window_start)
+    job_days = await _daily_count_map(db, CrawlJob.created_at, window_start)
+    alert_days = await _daily_count_map(db, AlertEvent.triggered_at, window_start)
+    activity = []
+    for days_ago in range(13, -1, -1):
+        day = generated_at.date() - timedelta(days=days_ago)
+        key = day.isoformat()
+        activity.append(
+            {
+                "day": day,
+                "observations": observation_days.get(key, 0),
+                "jobs": job_days.get(key, 0),
+                "alerts": alert_days.get(key, 0),
+            }
+        )
+
     return OverviewResponse(
-        generated_at=datetime.now(UTC),
+        generated_at=generated_at,
         sources={"total": source_total, "active": source_active},
         products={"total": product_total, "active": product_active},
         observations={"total": observation_total},
         jobs=jobs,
         alerts={"total": alert_total, "open": alert_open},
         latest_observation_at=latest_observation_at,
+        activity=activity,
         recent_jobs=[JobResponse.model_validate(job) for job in recent_jobs],
         recent_alerts=[AlertEventResponse.model_validate(event) for event in recent_alerts],
     )

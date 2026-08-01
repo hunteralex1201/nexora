@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -245,6 +245,13 @@ class CountMetric(BaseModel):
     active: int | None = None
 
 
+class OverviewActivityPoint(BaseModel):
+    day: date
+    observations: int = 0
+    jobs: int = 0
+    alerts: int = 0
+
+
 class OverviewResponse(BaseModel):
     generated_at: datetime
     sources: CountMetric
@@ -253,6 +260,7 @@ class OverviewResponse(BaseModel):
     jobs: dict[str, int]
     alerts: dict[str, int]
     latest_observation_at: datetime | None
+    activity: list[OverviewActivityPoint] = Field(default_factory=list)
     recent_jobs: list[JobResponse]
     recent_alerts: list[AlertEventResponse]
 

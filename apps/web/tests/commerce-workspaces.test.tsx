@@ -1,15 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import axe from 'axe-core';
 import type { AnchorHTMLAttributes, ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AgentWorkspace } from '@/components/commerce/agent-workspace';
 import { AIWorkspace } from '@/components/commerce/ai-workspace';
 import { AlertWorkspace } from '@/components/commerce/alert-workspace';
+import { IntegrationWorkspace } from '@/components/commerce/integration-workspace';
 import { JobWorkspace } from '@/components/commerce/job-workspace';
+import { MarketWorkspace } from '@/components/commerce/market-workspace';
 import { OverviewDashboard } from '@/components/commerce/overview-dashboard';
 import { ProductWorkspace } from '@/components/commerce/product-workspace';
+import { ReportWorkspace } from '@/components/commerce/report-workspace';
+import { SettingsWorkspace } from '@/components/commerce/settings-workspace';
 import { SourceWorkspace } from '@/components/commerce/source-workspace';
+import { WorkflowWorkspace } from '@/components/commerce/workflow-workspace';
 import { commerceRequest, streamAIChat } from '@/lib/commerce-client';
 
 vi.mock('next/link', () => ({
@@ -128,6 +135,29 @@ const alertEvent = {
   acknowledged_at: null,
 };
 
+const insight = {
+  id: 'insight-1',
+  product_id: product.id,
+  product_name: product.name,
+  source_id: source.id,
+  source_name: source.name,
+  observation_id: observation.id,
+  crawl_job_id: job.id,
+  kind: 'product_summary',
+  model: 'qwen3:8b',
+  prompt_version: 'v1',
+  content: 'The observed desk price is below the previous recorded price.',
+  confidence: '0.88',
+  evidence: {
+    recommended_action: 'Verify the current listing before updating a campaign.',
+    rationale: ['The latest persisted observation is BDT 75.00.'],
+    observation_ids: [observation.id],
+    facts: { current_price: '75.00', previous_price: '80.00' },
+  },
+  idempotency_key: 'insight-key-1',
+  generated_at: now,
+};
+
 function responseFor(path: string, init?: RequestInit): unknown {
   const method = init?.method ?? 'GET';
   if (path === 'overview') {
@@ -156,6 +186,7 @@ function responseFor(path: string, init?: RequestInit): unknown {
   if (path.startsWith('alerts/events?')) return [alertEvent];
   if (path.includes('/acknowledge'))
     return { ...alertEvent, status: 'acknowledged', acknowledged_at: now };
+  if (path.startsWith('ai/insights?')) return [insight];
   if (path === 'ai/readiness') {
     return {
       status: 'ready',
@@ -163,6 +194,28 @@ function responseFor(path: string, init?: RequestInit): unknown {
       expected_embedding_model: 'qwen3-embedding:0.6b',
       installed_models: ['qwen3:8b', 'qwen3-embedding:0.6b'],
       missing_models: [],
+    };
+  }
+  if (path === 'connectors') {
+    return {
+      jsonld: {
+        connector_id: 'jsonld',
+        connector_version: '1.0.0',
+        parser_version: '1.0.0',
+        capability_states: ['collect'],
+        supported_fields: ['name', 'price', 'availability'],
+        country: 'global',
+        owner: 'NEXORA',
+      },
+      structured_html: {
+        connector_id: 'structured_html',
+        connector_version: '1.0.0',
+        parser_version: '1.0.0',
+        capability_states: ['collect'],
+        supported_fields: ['name', 'price'],
+        country: 'global',
+        owner: 'NEXORA',
+      },
     };
   }
   if (path === 'imports/json' || path === 'imports/csv') {
@@ -214,6 +267,27 @@ describe('commerce workspaces', () => {
     expect(screen.getByText('Active sources')).toBeInTheDocument();
     expect(screen.getByText('Premium Writing Desk dropped by 6.25%.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /add source/i })).toHaveAttribute('href', '/sources');
+  });
+
+  it('renders persisted market intelligence with evidence and Copilot handoff', async () => {
+    const user = userEvent.setup();
+    renderWorkspace(<MarketWorkspace />);
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Market Intelligence' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('88%')).toHaveLength(2);
+    expect(
+      screen.getByText('Verify the current listing before updating a campaign.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Explore with Copilot/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/ai?prompt='),
+    );
+
+    const search = screen.getByRole('textbox', { name: 'Search insights' });
+    await user.type(search, 'desk');
+    expect(search).toHaveValue('desk');
   });
 
   it('renders searchable products and a readable price inspector', async () => {
@@ -290,6 +364,26 @@ describe('commerce workspaces', () => {
     automation.unmount();
   });
 
+  it('maps implemented workflow recipes to the persisted job ledger', async () => {
+    renderWorkspace(<WorkflowWorkspace />);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Workflows' })).toBeInTheDocument();
+    expect(screen.getAllByText('Product evidence collection').length).toBeGreaterThan(0);
+    expect(screen.getByText('Local AI insight generation')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Run automation/i })).toHaveAttribute('href', '/jobs');
+  });
+
+  it('derives agent capability readiness from sources and the local model', async () => {
+    renderWorkspace(<AgentWorkspace />);
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Agent Operations' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Collection Worker').length).toBeGreaterThan(0);
+    expect(screen.getByText('Local Intelligence Worker')).toBeInTheDocument();
+    expect(screen.getAllByText('Capability ready')).toHaveLength(2);
+  });
+
   it('streams a local-model conversation and starts a clean new chat', async () => {
     const user = userEvent.setup();
     renderWorkspace(<AIWorkspace />);
@@ -311,6 +405,67 @@ describe('commerce workspaces', () => {
     await user.click(screen.getByRole('button', { name: 'New chat' }));
     expect(screen.getByRole('heading', { level: 2, name: 'How can I help?' })).toBeInTheDocument();
     expect(screen.queryByText('Bangla response')).not.toBeInTheDocument();
+  });
+
+  it('previews persisted operational reports and switches export datasets', async () => {
+    const user = userEvent.setup();
+    renderWorkspace(<ReportWorkspace />);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Reports' })).toBeInTheDocument();
+    expect(screen.getAllByText('Product evidence').length).toBeGreaterThan(0);
+    expect(screen.getByText('Premium Writing Desk')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Download CSV/i })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: /Automation ledger/i }));
+    expect(screen.getByText('job-1')).toBeInTheDocument();
+    expect(screen.getAllByText('failed').length).toBeGreaterThan(0);
+  });
+
+  it('renders only registered integrations and observed runtime state', async () => {
+    const user = userEvent.setup();
+    renderWorkspace(<IntegrationWorkspace />);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Integrations' })).toBeInTheDocument();
+    expect(screen.getByText('JSON-LD Commerce')).toBeInTheDocument();
+    expect(screen.getByText('Structured HTML')).toBeInTheDocument();
+    expect(screen.getByText('Ollama / Qwen runtime')).toBeInTheDocument();
+    expect(screen.getByText('n8n automation API')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: 'Search connectors' }), 'json');
+    expect(screen.getByText('JSON-LD Commerce')).toBeInTheDocument();
+    expect(screen.queryByText('Structured HTML')).not.toBeInTheDocument();
+  });
+
+  it('shows the no-login deployment policy and resets local interface preferences', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem('nexora-sidebar-collapsed', 'true');
+    window.localStorage.setItem('nexora-last-product-search', 'desk');
+    renderWorkspace(<SettingsWorkspace />);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByText('Open workspace access')).toBeInTheDocument();
+    expect(await screen.findByText('qwen3:8b')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reset interface preferences' }));
+    expect(window.localStorage.getItem('nexora-sidebar-collapsed')).toBeNull();
+    expect(window.localStorage.getItem('nexora-last-product-search')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Preferences reset');
+  });
+
+  it.each([
+    ['Overview', <OverviewDashboard key="overview-accessibility" />],
+    ['AI chat', <AIWorkspace key="ai-accessibility" />],
+    ['Products', <ProductWorkspace key="products-accessibility" />],
+    ['Alerts', <AlertWorkspace key="alerts-accessibility" />],
+    ['Reports', <ReportWorkspace key="reports-accessibility" />],
+    ['Integrations', <IntegrationWorkspace key="integrations-accessibility" />],
+  ] as const)('has no automatically detectable accessibility violations in %s', async (heading, workspace) => {
+    const mounted = renderWorkspace(workspace);
+    await screen.findByRole('heading', { level: 1, name: heading });
+    if (heading === 'AI chat') await screen.findByText('qwen3:8b ready');
+    if (heading === 'Products') await screen.findByText('Current price');
+    const result = await axe.run(mounted.container);
+    expect(result.violations).toEqual([]);
+    mounted.unmount();
   });
 
   it('creates alert rules and acknowledges open events', async () => {

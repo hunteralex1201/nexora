@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
 import type { AnchorHTMLAttributes } from 'react';
@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/page-header';
 import { LoadingPanel, StatePanel } from '@/components/state-panel';
 
 let pathname = '/overview';
+const pushMock = vi.fn();
 
 vi.mock('next/link', () => ({
   default: ({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
@@ -19,11 +20,13 @@ vi.mock('next/link', () => ({
 
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
+  useRouter: () => ({ push: pushMock }),
 }));
 
 describe('dashboard foundation components', () => {
   beforeEach(() => {
     pathname = '/overview';
+    pushMock.mockReset();
   });
 
   it('renders the brand with a descriptive home link', () => {
@@ -62,6 +65,34 @@ describe('dashboard foundation components', () => {
 
     await user.click(screen.getByRole('button', { name: 'Close navigation' }));
     expect(openButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('supports command search, modal focus containment, Escape, and Enter handoff', async () => {
+    const user = userEvent.setup();
+    render(
+      <AppShell>
+        <p>Workspace content</p>
+      </AppShell>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Open command palette' });
+    await user.click(trigger);
+    const search = screen.getByRole('textbox', { name: 'Search commands' });
+    await waitFor(() => expect(search).toHaveFocus());
+
+    await user.tab({ shift: true });
+    expect(screen.getByRole('link', { name: /Search product evidence/i })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'NEXORA command palette' })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+
+    await user.click(trigger);
+    const reopenedSearch = screen.getByRole('textbox', { name: 'Search commands' });
+    await user.type(reopenedSearch, 'unlisted item');
+    expect(screen.getByRole('status')).toHaveTextContent('No workspace commands match');
+    await user.keyboard('{Enter}');
+    expect(pushMock).toHaveBeenCalledWith('/products?q=unlisted%20item');
+    expect(screen.queryByRole('dialog', { name: 'NEXORA command palette' })).not.toBeInTheDocument();
   });
 
   it('renders reusable headings and state messaging', () => {
