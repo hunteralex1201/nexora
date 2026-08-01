@@ -163,16 +163,27 @@ export interface ConnectorMetadata {
 export type ConnectorRegistry = Record<string, ConnectorMetadata>;
 
 async function errorMessage(response: Response): Promise<string> {
+  let detail = '';
   try {
     const payload = (await response.json()) as { detail?: string | Array<{ msg?: string }> };
-    if (typeof payload.detail === 'string') return payload.detail;
-    if (Array.isArray(payload.detail)) {
-      return payload.detail.map((item) => item.msg ?? 'Validation error').join('; ');
-    }
+    if (typeof payload.detail === 'string') detail = payload.detail;
+    if (Array.isArray(payload.detail))
+      detail = payload.detail.map((item) => item.msg ?? 'Check this field').join('; ');
   } catch {
-    // Fall through to the status text.
+    // Some upstream failures have no JSON body. Use a human-readable status fallback below.
   }
-  return response.statusText || `Request failed with HTTP ${response.status}`;
+
+  if (/source is inactive/i.test(detail))
+    return 'This source is paused. Activate it from Sources and try again.';
+  if (/not found/i.test(detail))
+    return 'This item no longer exists. Refresh the page and try again.';
+  if (detail) return detail;
+  if (response.status === 409)
+    return 'This action conflicts with the current state. Refresh and try again.';
+  if (response.status === 422) return 'Check the form fields and try again.';
+  if (response.status === 429) return 'Too many requests. Wait a moment and try again.';
+  if (response.status >= 500) return 'NEXORA could not complete this action. Try again shortly.';
+  return response.statusText || 'The request could not be completed.';
 }
 
 export async function commerceRequest<T>(path: string, init?: RequestInit): Promise<T> {

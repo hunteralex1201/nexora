@@ -6,23 +6,27 @@ export function PageHeader({
   description,
   actions,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-5 border-b border-white/8 pb-7 sm:flex-row sm:items-end sm:justify-between">
-      <div className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
-          {eyebrow}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="max-w-2xl">
+        {eyebrow ? (
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a4553a]">
+            {eyebrow}
+          </p>
+        ) : null}
+        <h1 className="text-[26px] font-semibold tracking-[-0.035em] text-[#272622] sm:text-[30px]">
           {title}
         </h1>
-        <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">{description}</p>
+        {description ? (
+          <p className="mt-2 max-w-xl text-[13px] leading-5 text-[#747168]">{description}</p>
+        ) : null}
       </div>
-      {actions && <div className="shrink-0">{actions}</div>}
-    </div>
+      {actions ? <div className="shrink-0">{actions}</div> : null}
+    </header>
   );
 }

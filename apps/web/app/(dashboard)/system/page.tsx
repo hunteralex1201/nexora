@@ -1,12 +1,9 @@
-import { Activity, Boxes, Database, HardDrive, ServerCog, ShieldCheck } from 'lucide-react';
+import { Activity, Database, ServerCog } from 'lucide-react';
 import type { Metadata } from 'next';
 
 import { PageHeader } from '@/components/page-header';
-import { StatePanel } from '@/components/state-panel';
 
-export const metadata: Metadata = {
-  title: 'System',
-};
+export const metadata: Metadata = { title: 'System health' };
 export const dynamic = 'force-dynamic';
 
 interface ReadinessResponse {
@@ -21,177 +18,87 @@ async function getReadiness(): Promise<ReadinessResponse | null> {
     process.env.NEXT_PUBLIC_API_URL ??
     'http://localhost:8000/api/v1'
   ).replace(/\/$/, '');
-
   try {
     const response = await fetch(`${baseUrl}/ready`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(4_000),
     });
-    const payload = (await response.json()) as ReadinessResponse;
-    return payload;
+    if (!response.ok) return null;
+    return (await response.json()) as ReadinessResponse;
   } catch {
     return null;
   }
 }
 
-const platformServices = [
-  {
-    name: 'API gateway',
-    description: 'FastAPI contract, tracing, and structured errors',
-    icon: ServerCog,
-    phase: 'Foundation',
-  },
-  {
-    name: 'PostgreSQL',
-    description: 'Transactional models and Alembic migrations',
-    icon: Database,
-    phase: 'Foundation',
-  },
-  {
-    name: 'Redis',
-    description: 'Cache and future queue coordination',
-    icon: Activity,
-    phase: 'Foundation',
-  },
-  {
-    name: 'MinIO',
-    description: 'Immutable raw evidence storage',
-    icon: HardDrive,
-    phase: 'Configured only',
-  },
-  {
-    name: 'Qdrant',
-    description: 'Future evidence retrieval index',
-    icon: Boxes,
-    phase: 'Configured only',
-  },
+const services = [
+  { name: 'API', key: 'api', icon: ServerCog },
+  { name: 'Database', key: 'database', icon: Database },
+  { name: 'Job queue', key: 'redis', icon: Activity },
 ] as const;
-
-function serviceStatus(
-  service: (typeof platformServices)[number],
-  readiness: ReadinessResponse | null,
-): { label: string; className: string } {
-  if (service.name === 'PostgreSQL') {
-    const status = readiness?.dependencies.database;
-    return status === 'healthy'
-      ? { label: 'Healthy', className: 'text-emerald-300' }
-      : status === 'unhealthy'
-        ? { label: 'Unhealthy', className: 'text-rose-300' }
-        : { label: 'Unknown', className: 'text-slate-500' };
-  }
-  if (service.name === 'Redis') {
-    const status = readiness?.dependencies.redis;
-    return status === 'healthy'
-      ? { label: 'Healthy', className: 'text-emerald-300' }
-      : status === 'unhealthy'
-        ? { label: 'Unhealthy', className: 'text-rose-300' }
-        : { label: 'Unknown', className: 'text-slate-500' };
-  }
-  if (service.name === 'API gateway') {
-    return readiness
-      ? { label: 'Reachable', className: 'text-emerald-300' }
-      : { label: 'Unknown', className: 'text-slate-500' };
-  }
-  return { label: 'Not probed', className: 'text-slate-500' };
-}
 
 export default async function SystemPage() {
   const readiness = await getReadiness();
   const systemReady = readiness?.status === 'ready';
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-4xl">
       <PageHeader
-        eyebrow="System control"
-        title="Readiness without hidden assumptions."
-        description="Core dependency status is fetched from the API readiness contract. Optional services remain marked as configured or unprobed until application integrations are implemented."
+        title="System health"
+        description="Live status for the core NEXORA services."
         actions={
           <span
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
               systemReady
-                ? 'border-emerald-400/20 bg-emerald-400/[0.07] text-emerald-200'
-                : 'border-amber-400/20 bg-amber-400/[0.07] text-amber-200'
+                ? 'border-[#cce3d5] bg-[#eaf4ee] text-[#287a55]'
+                : 'border-[#eadbb9] bg-[#f8f0df] text-[#986817]'
             }`}
           >
             <span
-              className={`size-2 rounded-full ${systemReady ? 'status-pulse bg-emerald-400' : 'bg-amber-400'}`}
+              className={`size-2 rounded-full ${systemReady ? 'status-pulse bg-[#287a55]' : 'bg-[#986817]'}`}
               aria-hidden="true"
             />
-            {systemReady ? 'Core ready' : 'Readiness incomplete'}
+            {systemReady ? 'All systems operational' : 'Service check needed'}
           </span>
         }
       />
 
-      <section className="mt-7 overflow-hidden rounded-2xl border border-white/8 bg-[#0a101c]/80">
-        <div className="border-b border-white/8 px-5 py-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="size-4 text-violet-300" aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-slate-200">Platform services</h2>
-          </div>
-          <p className="mt-1 text-xs text-slate-600">
-            Probe values are current only for the API, database, and Redis dependencies.
-          </p>
+      <section className="nx-panel mt-6 overflow-hidden">
+        <div className="border-b border-[#e4e1d9] px-5 py-4">
+          <h2 className="text-[13px] font-semibold text-[#3b3933]">Core services</h2>
         </div>
-        <div className="divide-y divide-white/[0.06]">
-          {platformServices.map((service) => {
+        <div className="divide-y divide-[#ece9e2]">
+          {services.map((service) => {
             const Icon = service.icon;
-            const status = serviceStatus(service, readiness);
+            const healthy =
+              service.key === 'api'
+                ? Boolean(readiness)
+                : readiness?.dependencies[service.key] === 'healthy';
             return (
-              <article
-                key={service.name}
-                className="grid gap-4 px-5 py-4 sm:grid-cols-[2fr_1fr_1fr] sm:items-center sm:px-6"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/8 bg-white/[0.03] text-slate-400">
-                    <Icon className="size-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-medium text-slate-200">{service.name}</h3>
-                    <p className="mt-1 text-xs text-slate-600">{service.description}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-700 sm:hidden">
-                    Status
-                  </p>
-                  <p className={`text-sm font-medium ${status.className}`}>{status.label}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-700 sm:hidden">
-                    Scope
-                  </p>
-                  <p className="text-xs text-slate-500">{service.phase}</p>
-                </div>
+              <article key={service.key} className="flex items-center gap-4 px-5 py-4">
+                <span className="grid size-9 place-items-center rounded-lg bg-[#f0eee8] text-[#747168]">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <h3 className="flex-1 text-[13px] font-medium text-[#3b3933]">{service.name}</h3>
+                <span
+                  className={`inline-flex items-center gap-2 text-xs font-medium ${healthy ? 'text-[#287a55]' : 'text-[#a5463c]'}`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${healthy ? 'bg-[#287a55]' : 'bg-[#a5463c]'}`}
+                    aria-hidden="true"
+                  />
+                  {healthy ? 'Operational' : 'Unavailable'}
+                </span>
               </article>
             );
           })}
         </div>
       </section>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        {readiness ? (
-          <StatePanel
-            variant={systemReady ? 'empty' : 'partial'}
-            title={
-              systemReady
-                ? 'Core dependencies are responding'
-                : 'One or more core dependencies are unavailable'
-            }
-            description={`Readiness request ${readiness.request_id}. No connection URL, password, or credential is exposed by this response.`}
-          />
-        ) : (
-          <StatePanel
-            variant="error"
-            title="API readiness could not be reached"
-            description="Start the local API and its core Docker services, then reload this page. The workspace will not infer a healthy state when the probe is unavailable."
-          />
-        )}
-        <StatePanel
-          variant="restricted"
-          title="Operational actions are intentionally disabled"
-          description="Scaling, backups, connector execution, and external automation are future operations that require validated services, configured credentials, explicit controls, and audit evidence."
-        />
-      </div>
+      <p className="mt-4 text-center text-[11px] text-[#9d998f]">
+        {readiness
+          ? `Last check ${readiness.request_id.slice(0, 8)}`
+          : 'The readiness endpoint could not be reached.'}
+      </p>
     </div>
   );
 }

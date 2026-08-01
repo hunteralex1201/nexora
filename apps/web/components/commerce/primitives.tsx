@@ -1,54 +1,56 @@
-import { AlertTriangle, LoaderCircle, PackageOpen } from 'lucide-react';
+import { AlertCircle, LoaderCircle, PackageOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 export function MetricCard({
   label,
   value,
   detail,
-  tone = 'text-white',
+  tone = 'text-[#272622]',
 }: {
   label: string;
   value: ReactNode;
-  detail: string;
+  detail?: string;
   tone?: string;
 }) {
   return (
-    <article className="rounded-2xl border border-white/8 bg-white/[0.025] p-5 shadow-[0_18px_50px_rgba(2,6,23,0.16)]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className={`mt-3 text-2xl font-semibold tracking-[-0.03em] ${tone}`}>{value}</p>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+    <article className="nx-panel p-4 sm:p-5">
+      <p className="text-[11px] font-medium text-[#747168]">{label}</p>
+      <p className={`mt-2 text-[25px] font-semibold tracking-[-0.04em] ${tone}`}>{value}</p>
+      {detail ? <p className="mt-1 text-xs leading-5 text-[#9d998f]">{detail}</p> : null}
     </article>
   );
 }
 
 const statusTone: Record<string, string> = {
-  active: 'border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200',
-  succeeded: 'border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200',
-  acknowledged: 'border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-200',
-  running: 'border-cyan-400/20 bg-cyan-400/[0.08] text-cyan-200',
-  queued: 'border-amber-400/20 bg-amber-400/[0.08] text-amber-200',
-  open: 'border-rose-400/20 bg-rose-400/[0.08] text-rose-200',
-  failed: 'border-rose-400/20 bg-rose-400/[0.08] text-rose-200',
-  inactive: 'border-slate-400/15 bg-slate-400/[0.06] text-slate-400',
+  active: 'border-[#cce3d5] bg-[#eaf4ee] text-[#287a55]',
+  ready: 'border-[#cce3d5] bg-[#eaf4ee] text-[#287a55]',
+  healthy: 'border-[#cce3d5] bg-[#eaf4ee] text-[#287a55]',
+  succeeded: 'border-[#cce3d5] bg-[#eaf4ee] text-[#287a55]',
+  acknowledged: 'border-[#cce3d5] bg-[#eaf4ee] text-[#287a55]',
+  running: 'border-[#cfdfdf] bg-[#edf4f4] text-[#376d70]',
+  queued: 'border-[#eadbb9] bg-[#f8f0df] text-[#986817]',
+  open: 'border-[#eccbc6] bg-[#f9eae7] text-[#a5463c]',
+  failed: 'border-[#eccbc6] bg-[#f9eae7] text-[#a5463c]',
+  inactive: 'border-[#dedbd2] bg-[#f0eee8] text-[#747168]',
 };
 
 export function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${statusTone[normalized] ?? 'border-violet-400/20 bg-violet-400/[0.08] text-violet-200'}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold capitalize ${statusTone[normalized] ?? 'border-[#decfc7] bg-[#f4e6df] text-[#9d4b32]'}`}
     >
       {status.replaceAll('_', ' ')}
     </span>
   );
 }
 
-export function LoadingState({ label = 'Loading live data' }: { label?: string }) {
+export function LoadingState({ label = 'Loading' }: { label?: string }) {
   return (
-    <div className="grid min-h-48 place-items-center rounded-2xl border border-white/8 bg-white/[0.02] p-8 text-center">
-      <div>
-        <LoaderCircle className="mx-auto size-6 animate-spin text-violet-300" aria-hidden="true" />
-        <p className="mt-3 text-sm text-slate-400">{label}</p>
+    <div className="grid min-h-48 place-items-center">
+      <div className="text-center">
+        <LoaderCircle className="mx-auto size-5 animate-spin text-[#b85c3d]" aria-hidden="true" />
+        <p className="mt-3 text-[13px] text-[#747168]">{label}</p>
       </div>
     </div>
   );
@@ -56,13 +58,15 @@ export function LoadingState({ label = 'Loading live data' }: { label?: string }
 
 export function ErrorState({ message, action }: { message: string; action?: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-rose-400/15 bg-rose-500/[0.05] p-6">
+    <div className="rounded-xl border border-[#eccbc6] bg-[#f9eae7] p-4">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 size-5 shrink-0 text-rose-300" aria-hidden="true" />
+        <AlertCircle className="mt-0.5 size-[18px] shrink-0 text-[#a5463c]" aria-hidden="true" />
         <div>
-          <h2 className="text-sm font-semibold text-rose-100">Live data request failed</h2>
-          <p className="mt-1 text-sm leading-6 text-rose-200/65">{message}</p>
-          {action ? <div className="mt-4">{action}</div> : null}
+          <h2 className="text-[13px] font-semibold text-[#80372f]">
+            Couldn’t complete this request
+          </h2>
+          <p className="mt-1 text-[13px] leading-5 text-[#96534b]">{message}</p>
+          {action ? <div className="mt-3">{action}</div> : null}
         </div>
       </div>
     </div>
@@ -75,15 +79,17 @@ export function EmptyState({
   action,
 }: {
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-white/12 bg-white/[0.018] p-8 text-center">
-      <PackageOpen className="mx-auto size-7 text-slate-600" aria-hidden="true" />
-      <h2 className="mt-4 text-sm font-semibold text-slate-200">{title}</h2>
-      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">{description}</p>
-      {action ? <div className="mt-5">{action}</div> : null}
+    <div className="rounded-xl border border-dashed border-[#d6d2c8] bg-[#faf9f6] px-6 py-10 text-center">
+      <PackageOpen className="mx-auto size-6 text-[#aaa69c]" aria-hidden="true" />
+      <h2 className="mt-3 text-[13px] font-semibold text-[#3b3933]">{title}</h2>
+      {description ? (
+        <p className="mx-auto mt-1.5 max-w-lg text-xs leading-5 text-[#858178]">{description}</p>
+      ) : null}
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }

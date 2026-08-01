@@ -1,17 +1,15 @@
-import { ArrowLeft, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { Brand } from '@/components/brand';
 
-export const metadata: Metadata = {
-  title: 'Sign in',
-};
+export const metadata: Metadata = { title: 'Sign in' };
 
 const errorMessages: Record<string, string> = {
-  credentials: 'The email or password was not accepted.',
-  unavailable: 'The authentication service is not ready. Verify the API and database.',
-  session: 'Your protected session is required to open the workspace.',
+  credentials: 'The email or password is incorrect.',
+  unavailable: 'NEXORA is temporarily unavailable. Please try again shortly.',
+  session: 'Your session expired. Sign in again to continue.',
 };
 
 export default async function LoginPage({
@@ -25,44 +23,34 @@ export default async function LoginPage({
   return (
     <main
       id="main-content"
-      className="surface-grid grid min-h-screen place-items-center px-4 py-10 text-white sm:px-6"
+      className="surface-grid grid min-h-screen place-items-center px-4 py-10 sm:px-6"
     >
-      <div className="w-full max-w-md">
-        <div className="mb-8 flex items-center justify-between">
+      <div className="w-full max-w-[420px]">
+        <div className="mb-7 flex items-center justify-between px-1">
           <Brand />
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            Home
+          <Link href="/" className="nx-button-quiet !min-h-9 !px-2.5">
+            <ArrowLeft className="size-4" aria-hidden="true" /> Home
           </Link>
         </div>
 
-        <section className="rounded-[1.75rem] border border-white/10 bg-[#0a101c]/95 p-6 shadow-[0_28px_90px_rgba(0,0,0,0.4)] backdrop-blur sm:p-8">
-          <span className="grid size-11 place-items-center rounded-xl border border-violet-400/20 bg-violet-500/10 text-violet-300">
-            <KeyRound className="size-5" aria-hidden="true" />
-          </span>
-          <h1 className="mt-6 text-2xl font-semibold tracking-[-0.02em]">Sign in to NEXORA</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Use an administrator or analyst account provisioned through the backend management
-            command.
-          </p>
+        <section className="rounded-[1.25rem] border border-[#dedbd2] bg-white p-6 shadow-[0_24px_70px_rgba(44,40,32,0.10)] sm:p-8">
+          <h1 className="text-2xl font-semibold tracking-[-0.035em] text-[#272622]">
+            Welcome back
+          </h1>
+          <p className="mt-2 text-[13px] text-[#747168]">Sign in to your NEXORA workspace.</p>
 
-          {message && (
+          {message ? (
             <div
               role="alert"
-              className="mt-5 rounded-xl border border-rose-400/20 bg-rose-500/[0.07] px-4 py-3 text-sm text-rose-200"
+              className="mt-5 rounded-lg border border-[#eccbc6] bg-[#f9eae7] px-3.5 py-3 text-[13px] text-[#96534b]"
             >
               {message}
             </div>
-          )}
+          ) : null}
 
-          <form action="/api/auth/login" method="post" className="mt-7 space-y-5">
-            <div>
-              <label htmlFor="email" className="text-sm font-medium text-slate-300">
-                Email address
-              </label>
+          <form action="/api/auth/login" method="post" className="mt-7 space-y-4">
+            <label htmlFor="email" className="nx-label">
+              Email
               <input
                 id="email"
                 name="email"
@@ -70,17 +58,12 @@ export default async function LoginPage({
                 autoComplete="username"
                 required
                 inputMode="email"
-                className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-slate-950/55 px-3.5 text-sm text-white outline-none placeholder:text-slate-700 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/15"
-                placeholder="operator@example.com"
+                className="nx-input"
+                placeholder="you@company.com"
               />
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-sm font-medium text-slate-300">
-                  Password
-                </label>
-                <span className="text-xs text-slate-600">Minimum 12 characters</span>
-              </div>
+            </label>
+            <label htmlFor="password" className="nx-label">
+              Password
               <input
                 id="password"
                 name="password"
@@ -88,27 +71,18 @@ export default async function LoginPage({
                 autoComplete="current-password"
                 required
                 minLength={12}
-                className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-slate-950/55 px-3.5 text-sm text-white outline-none placeholder:text-slate-700 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/15"
+                className="nx-input"
                 placeholder="Enter your password"
               />
-            </div>
-            <button
-              type="submit"
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_35px_rgba(79,70,229,0.22)] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
-            >
-              <LockKeyhole className="size-4" aria-hidden="true" />
-              Continue securely
+            </label>
+            <button type="submit" className="nx-button mt-2 w-full !min-h-11">
+              <LockKeyhole className="size-4" aria-hidden="true" /> Sign in
             </button>
           </form>
-
-          <div className="mt-6 flex gap-3 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-3.5">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-cyan-300" aria-hidden="true" />
-            <p className="text-xs leading-5 text-cyan-100/65">
-              Access tokens are stored in an HTTP-only cookie by the web server. This foundation
-              does not provide self-registration or social sign-in.
-            </p>
-          </div>
         </section>
+        <p className="mt-5 text-center text-[11px] text-[#9d998f]">
+          Private workspace · Authorized access only
+        </p>
       </div>
     </main>
   );

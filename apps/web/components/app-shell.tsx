@@ -3,15 +3,12 @@
 import {
   BellRing,
   BrainCircuit,
-  Database,
   LayoutDashboard,
   LogOut,
   Menu,
   PackageSearch,
   RadioTower,
   ServerCog,
-  Settings,
-  ShieldCheck,
   Workflow,
   X,
 } from 'lucide-react';
@@ -23,59 +20,59 @@ import { Brand } from '@/components/brand';
 
 const navigation = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { href: '/sources', label: 'Sources & imports', icon: RadioTower },
-  { href: '/products', label: 'Products & prices', icon: PackageSearch },
-  { href: '/jobs', label: 'Automation jobs', icon: Workflow },
+  { href: '/sources', label: 'Sources', icon: RadioTower },
+  { href: '/products', label: 'Products', icon: PackageSearch },
+  { href: '/jobs', label: 'Automation', icon: Workflow },
   { href: '/alerts', label: 'Alerts', icon: BellRing },
-  { href: '/ai', label: 'Local AI insights', icon: BrainCircuit },
-  { href: '/system', label: 'System', icon: ServerCog },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/ai', label: 'AI insights', icon: BrainCircuit },
 ] as const;
+
+const pageTitles: Record<string, string> = {
+  '/overview': 'Overview',
+  '/sources': 'Sources',
+  '/products': 'Products',
+  '/jobs': 'Automation',
+  '/alerts': 'Alerts',
+  '/ai': 'AI insights',
+  '/system': 'System health',
+  '/settings': 'Settings',
+};
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const pageTitle = pageTitles[pathname] ?? 'Workspace';
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 lg:flex">
+    <div className="min-h-screen bg-[#f6f5f1] text-[#272622] lg:flex">
       {navigationOpen && (
         <button
           type="button"
           aria-label="Close navigation overlay"
-          className="fixed inset-0 z-40 bg-slate-950/75 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-[#272622]/35 backdrop-blur-[2px] lg:hidden"
           onClick={() => setNavigationOpen(false)}
         />
       )}
 
       <aside
         id="primary-navigation"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/8 bg-[#090e19]/98 p-5 shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[248px] flex-col border-r border-[#d8d5cd] bg-[#eeece6] px-3 py-4 transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
           navigationOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex h-10 items-center justify-between px-2">
           <Brand />
           <button
             type="button"
-            className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 lg:hidden"
+            className="grid size-9 place-items-center rounded-lg text-[#747168] hover:bg-[#e3e0d8] hover:text-[#272622] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b85c3d]/30 lg:hidden"
             aria-label="Close navigation"
             onClick={() => setNavigationOpen(false)}
           >
-            <X className="size-5" aria-hidden="true" />
+            <X className="size-[18px]" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-violet-400/15 bg-gradient-to-br from-violet-500/10 via-blue-500/5 to-transparent p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-violet-300">
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            Operational workspace
-          </div>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            Live sources, immutable observations, durable jobs, alerts, and local Ollama insights.
-          </p>
-        </div>
-
-        <nav aria-label="Dashboard" className="mt-7 space-y-2">
+        <nav aria-label="Dashboard" className="mt-7 space-y-1">
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -85,14 +82,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 onClick={() => setNavigationOpen(false)}
-                className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 ${
+                className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b85c3d]/30 ${
                   active
-                    ? 'border border-violet-400/25 bg-violet-500/12 text-white shadow-[0_0_24px_rgba(124,58,237,0.08)]'
-                    : 'border border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
+                    ? 'bg-[#dedbd3] text-[#272622] shadow-[inset_0_0_0_1px_rgba(89,83,72,0.05)]'
+                    : 'text-[#68655d] hover:bg-[#e5e2db] hover:text-[#272622]'
                 }`}
               >
                 <Icon
-                  className={`size-5 ${active ? 'text-violet-300' : 'text-slate-500'}`}
+                  className={`size-[17px] ${active ? 'text-[#9d4b32]' : 'text-[#8f8b81]'}`}
                   aria-hidden="true"
                 />
                 {item.label}
@@ -101,52 +98,62 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="mt-auto space-y-3">
-          <div className="rounded-xl border border-white/8 bg-white/[0.025] p-3">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Database className="size-4 text-cyan-400" aria-hidden="true" />
-              Runtime control
-            </div>
-            <p className="mt-1 text-sm font-medium text-slate-300">API, worker, and evidence pipeline</p>
-          </div>
+        <div className="mt-auto space-y-1 border-t border-[#d8d5cd] pt-3">
+          <Link
+            href="/system"
+            aria-current={pathname === '/system' ? 'page' : undefined}
+            onClick={() => setNavigationOpen(false)}
+            className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b85c3d]/30 ${
+              pathname === '/system'
+                ? 'bg-[#dedbd3] text-[#272622]'
+                : 'text-[#68655d] hover:bg-[#e5e2db] hover:text-[#272622]'
+            }`}
+          >
+            <ServerCog className="size-[17px] text-[#8f8b81]" aria-hidden="true" />
+            System health
+          </Link>
           <form action="/api/auth/logout" method="post">
             <button
               type="submit"
-              className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-sm font-medium text-slate-400 hover:border-rose-400/15 hover:bg-rose-500/[0.06] hover:text-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+              className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-[13px] font-medium text-[#68655d] hover:bg-[#f0dfda] hover:text-[#8f3f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b85c3d]/30"
             >
-              <LogOut className="size-5" aria-hidden="true" />
+              <LogOut className="size-[17px]" aria-hidden="true" />
               Sign out
             </button>
           </form>
         </div>
       </aside>
 
-      <div className="min-w-0 flex-1 lg:ml-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/8 bg-[#070b14]/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-[#dedbd2] bg-[#f6f5f1]/92 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <button
             type="button"
-            className="rounded-lg p-2 text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 lg:hidden"
+            className="mr-3 grid size-9 place-items-center rounded-lg text-[#68655d] hover:bg-[#ebe8e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b85c3d]/30 lg:hidden"
             aria-label="Open navigation"
             aria-expanded={navigationOpen}
             aria-controls="primary-navigation"
             onClick={() => setNavigationOpen(true)}
           >
-            <Menu className="size-5" aria-hidden="true" />
+            <Menu className="size-[18px]" aria-hidden="true" />
           </button>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="hidden text-right sm:block">
-              <span className="block text-xs font-medium text-slate-300">Platform operator</span>
-              <span className="block text-[11px] text-slate-600">Protected session</span>
-            </span>
+          <div className="lg:hidden">
+            <Brand compact />
+          </div>
+          <p className="hidden text-[13px] font-medium text-[#747168] lg:block">{pageTitle}</p>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden text-xs text-[#747168] sm:block">Administrator</span>
             <span
               aria-hidden="true"
-              className="grid size-9 place-items-center rounded-full border border-violet-400/25 bg-violet-500/10 text-xs font-semibold text-violet-200"
+              className="grid size-8 place-items-center rounded-full bg-[#dedbd3] text-[11px] font-semibold text-[#4b4943]"
             >
               NO
             </span>
           </div>
         </header>
-        <main id="main-content" className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main
+          id="main-content"
+          className="mx-auto w-full max-w-[1480px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9"
+        >
           {children}
         </main>
       </div>
