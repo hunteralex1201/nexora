@@ -29,6 +29,22 @@ services:
       - '80:80'
       - '443:443'
       - '443:443/udp'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '-T',
+          '5',
+          '-q',
+          '-O',
+          '/dev/null',
+          'http://127.0.0.1:2019/config/',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
     volumes:
       - ./deploy/production/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
