@@ -1,13 +1,18 @@
 'use client';
 
 import {
+  BellRing,
+  BrainCircuit,
   Database,
   LayoutDashboard,
   LogOut,
   Menu,
+  PackageSearch,
+  RadioTower,
   ServerCog,
   Settings,
   ShieldCheck,
+  Workflow,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -18,6 +23,11 @@ import { Brand } from '@/components/brand';
 
 const navigation = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
+  { href: '/sources', label: 'Sources & imports', icon: RadioTower },
+  { href: '/products', label: 'Products & prices', icon: PackageSearch },
+  { href: '/jobs', label: 'Automation jobs', icon: Workflow },
+  { href: '/alerts', label: 'Alerts', icon: BellRing },
+  { href: '/ai', label: 'Local AI insights', icon: BrainCircuit },
   { href: '/system', label: 'System', icon: ServerCog },
   { href: '/settings', label: 'Settings', icon: Settings },
 ] as const;
@@ -58,17 +68,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-8 rounded-2xl border border-violet-400/15 bg-gradient-to-br from-violet-500/10 via-blue-500/5 to-transparent p-4">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-violet-300">
             <ShieldCheck className="size-4" aria-hidden="true" />
-            Foundation mode
+            Operational workspace
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Demonstration shell. Live commerce evidence is not connected in Phase 0.
+            Live sources, immutable observations, durable jobs, alerts, and local Ollama insights.
           </p>
         </div>
 
         <nav aria-label="Dashboard" className="mt-7 space-y-2">
           {navigation.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href;
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
@@ -95,9 +105,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="rounded-xl border border-white/8 bg-white/[0.025] p-3">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <Database className="size-4 text-cyan-400" aria-hidden="true" />
-              Core services
+              Runtime control
             </div>
-            <p className="mt-1 text-sm font-medium text-slate-300">Awaiting readiness probe</p>
+            <p className="mt-1 text-sm font-medium text-slate-300">API, worker, and evidence pipeline</p>
           </div>
           <form action="/api/auth/logout" method="post">
             <button

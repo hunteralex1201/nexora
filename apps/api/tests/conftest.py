@@ -8,11 +8,13 @@ os.environ["REDIS_URL"] = "redis://localhost:6379/15"
 os.environ["SECRET_KEY"] = (
     "test-only-secret-key-with-at-least-32-characters"  # noqa: S105 - test only
 )
+os.environ["AUTOMATION_API_KEY"] = (
+    "test-only-automation-key-with-at-least-32-characters"  # noqa: S105 - test only
+)
 os.environ["LOG_LEVEL"] = "CRITICAL"
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal, engine
@@ -40,10 +42,10 @@ async def database_schema() -> AsyncIterator[None]:
 
 @pytest_asyncio.fixture(autouse=True)
 async def clean_database() -> AsyncIterator[None]:
-    """Keep authentication tests independent without recreating the engine."""
+    """Keep tests independent by clearing every table in dependency-safe order."""
     async with AsyncSessionLocal() as session:
-        await session.execute(delete(User))
-        await session.execute(delete(Role))
+        for table in reversed(Base.metadata.sorted_tables):
+            await session.execute(table.delete())
         await session.commit()
     yield
 

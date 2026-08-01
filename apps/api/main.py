@@ -13,6 +13,8 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.auth import router as auth_router
+from app.api.automation import router as automation_router
+from app.api.commerce import router as commerce_router
 from app.api.health import router as health_router
 from app.config import settings
 from app.database import close_database
@@ -96,6 +98,8 @@ async def add_request_context(request: Request, call_next: Any) -> Any:
 
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(commerce_router, prefix="/api/v1")
+app.include_router(automation_router, prefix="/api/v1")
 
 Instrumentator(
     excluded_handlers=["/metrics", "/api/v1/health"],

@@ -18,9 +18,25 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     DEPENDENCY_TIMEOUT_SECONDS: float = Field(default=2.0, gt=0, le=10)
 
+    WORKER_POLL_SECONDS: float = Field(default=2.0, ge=0.25, le=60)
+    WORKER_LOCK_SECONDS: int = Field(default=300, ge=30, le=3600)
+    WORKER_HEARTBEAT_SECONDS: int = Field(default=10, ge=2, le=60)
+    WORKER_HEALTH_FILE: str = "/tmp/nexora-worker-heartbeat"  # noqa: S108
+    CONNECTOR_TIMEOUT_SECONDS: float = Field(default=30.0, ge=3, le=120)
+    EVENT_STREAM_KEY: str = "nexora:events"
+    EVENT_STREAM_MAXLEN: int = Field(default=10000, ge=100, le=1000000)
+
+    OLLAMA_BASE_URL: str = "http://ollama:11434"
+    OLLAMA_CHAT_MODEL: str = "qwen3:8b"
+    OLLAMA_EMBEDDING_MODEL: str = "qwen3-embedding:0.6b"
+    OLLAMA_TIMEOUT_SECONDS: float = Field(default=180.0, ge=10, le=600)
+
     CORS_ORIGINS: str = "http://localhost:3000"
 
     SECRET_KEY: SecretStr = SecretStr("development-only-secret-change-before-deployment")
+    AUTOMATION_API_KEY: SecretStr = SecretStr(
+        "development-only-automation-key-change-before-deployment"
+    )
     ALGORITHM: Literal["HS256", "HS384", "HS512"] = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, ge=5, le=1440)
 
@@ -49,10 +65,20 @@ class Settings(BaseSettings):
     def validate_secret_for_deployment(self) -> Self:
         """Reject development credentials outside development and test environments."""
         secret = self.SECRET_KEY.get_secret_value()
+        automation_key = self.AUTOMATION_API_KEY.get_secret_value()
         if self.ENVIRONMENT in {"staging", "production"}:
             if len(secret) < 32 or "development" in secret.lower() or "change" in secret.lower():
                 raise ValueError(
                     "SECRET_KEY must be at least 32 characters and "
+                    "non-placeholder outside development"
+                )
+            if (
+                len(automation_key) < 32
+                or "development" in automation_key.lower()
+                or "change" in automation_key.lower()
+            ):
+                raise ValueError(
+                    "AUTOMATION_API_KEY must be at least 32 characters and "
                     "non-placeholder outside development"
                 )
         return self
