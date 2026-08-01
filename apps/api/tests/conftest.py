@@ -11,6 +11,9 @@ os.environ["SECRET_KEY"] = (
 os.environ["AUTOMATION_API_KEY"] = (
     "test-only-automation-key-with-at-least-32-characters"  # noqa: S105 - test only
 )
+os.environ["WORKSPACE_API_KEY"] = (
+    "test-only-workspace-key-with-at-least-32-characters"  # noqa: S105 - test only
+)
 os.environ["LOG_LEVEL"] = "CRITICAL"
 
 import pytest_asyncio

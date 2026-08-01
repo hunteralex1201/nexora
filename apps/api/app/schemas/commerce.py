@@ -50,9 +50,7 @@ class ProductImportItem(BaseModel):
     name: str = Field(min_length=1, max_length=500)
     canonical_url: HttpUrl
     price: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
-    original_price: Decimal | None = Field(
-        default=None, ge=0, max_digits=14, decimal_places=2
-    )
+    original_price: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     currency: str = Field(default="BDT", min_length=3, max_length=3)
     availability: Availability = "unknown"
     brand: str | None = Field(default=None, max_length=255)
@@ -299,3 +297,37 @@ class AIReadinessResponse(BaseModel):
     expected_embedding_model: str
     installed_models: list[str]
     missing_models: list[str]
+
+
+class AIChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8000)
+
+    @field_validator("content")
+    @classmethod
+    def strip_chat_content(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("message must not be blank")
+        return stripped
+
+
+class AIChatRequest(BaseModel):
+    messages: list[AIChatMessage] = Field(min_length=1, max_length=20)
+    temperature: float = Field(default=0.3, ge=0, le=1)
+    max_tokens: int = Field(default=512, ge=64, le=768)
+
+    @model_validator(mode="after")
+    def validate_conversation(self) -> "AIChatRequest":
+        if self.messages[-1].role != "user":
+            raise ValueError("the final message must be from the user")
+        if sum(len(message.content) for message in self.messages) > 24_000:
+            raise ValueError("conversation is too long; start a new chat")
+        return self
+
+
+class AIChatStreamEvent(BaseModel):
+    type: Literal["start", "token", "done", "error"]
+    content: str | None = None
+    model: str | None = None
+    total_duration_ms: int | None = None

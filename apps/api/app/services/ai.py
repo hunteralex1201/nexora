@@ -1,4 +1,5 @@
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.config import settings
 from app.models.commerce import Product, ProductObservation
+from app.schemas.commerce import AIChatRequest
 
 PROMPT_VERSION = "price-intelligence-v1"
 
@@ -18,6 +20,14 @@ class AIServiceError(RuntimeError):
 
 class TransientAIServiceError(AIServiceError):
     """Retryable local-model availability or timeout failure."""
+
+
+CHAT_SYSTEM_PROMPT = """You are NEXORA AI, a clear and practical assistant.
+Answer in the same language as the user's latest message unless they ask for another language.
+Be concise by default, use plain language, and give actionable steps when useful.
+Do not pretend to have live data, browser access, or private business context that was not provided.
+When uncertain, say what is uncertain instead of inventing facts.
+"""
 
 
 class StructuredInsight(BaseModel):
@@ -125,6 +135,62 @@ _OUTPUT_SCHEMA: dict[str, Any] = {
 }
 
 
+async def stream_chat_completion(request: AIChatRequest) -> AsyncIterator[dict[str, Any]]:
+    """Stream one private, non-persisted conversation from the configured Ollama model."""
+    payload = {
+        "model": settings.OLLAMA_CHAT_MODEL,
+        "messages": [
+            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
+            *[message.model_dump() for message in request.messages],
+        ],
+        "stream": True,
+        "think": False,
+        "keep_alive": "10m",
+        "options": {
+            "temperature": request.temperature,
+            "num_predict": request.max_tokens,
+            "num_ctx": 4096,
+        },
+    }
+
+    timeout = httpx.Timeout(settings.OLLAMA_TIMEOUT_SECONDS, connect=5.0)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST", f"{settings.OLLAMA_BASE_URL}/api/chat", json=payload
+            ) as response:
+                if response.status_code >= 500 or response.status_code in {408, 429}:
+                    raise TransientAIServiceError(
+                        f"Ollama returned retryable status {response.status_code}"
+                    )
+                if response.status_code != 200:
+                    raise AIServiceError(f"Ollama returned status {response.status_code}")
+
+                yield {"type": "start", "model": settings.OLLAMA_CHAT_MODEL}
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    event = json.loads(line)
+                    content = event.get("message", {}).get("content")
+                    if isinstance(content, str) and content:
+                        yield {"type": "token", "content": content}
+                    if event.get("done") is True:
+                        duration = event.get("total_duration")
+                        duration_ms = (
+                            round(duration / 1_000_000) if isinstance(duration, int) else None
+                        )
+                        yield {
+                            "type": "done",
+                            "model": event.get("model", settings.OLLAMA_CHAT_MODEL),
+                            "total_duration_ms": duration_ms,
+                        }
+                        return
+    except (httpx.TimeoutException, httpx.NetworkError, json.JSONDecodeError) as exc:
+        raise TransientAIServiceError("Local AI is temporarily unavailable") from exc
+
+    raise TransientAIServiceError("Local AI returned an incomplete response")
+
+
 async def generate_price_insight(
     product: Product,
     observations: list[ProductObservation],
@@ -169,9 +235,7 @@ async def generate_price_insight(
         raise TransientAIServiceError("Ollama is unavailable or timed out") from exc
 
     if response.status_code >= 500 or response.status_code in {408, 429}:
-        raise TransientAIServiceError(
-            f"Ollama returned retryable status {response.status_code}"
-        )
+        raise TransientAIServiceError(f"Ollama returned retryable status {response.status_code}")
     if response.status_code != 200:
         raise AIServiceError(f"Ollama returned status {response.status_code}")
 

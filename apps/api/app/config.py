@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     AUTOMATION_API_KEY: SecretStr = SecretStr(
         "development-only-automation-key-change-before-deployment"
     )
+    WORKSPACE_API_KEY: SecretStr = SecretStr(
+        "development-only-workspace-key-change-before-deployment"
+    )
     ALGORITHM: Literal["HS256", "HS384", "HS512"] = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, ge=5, le=1440)
 
@@ -66,6 +69,7 @@ class Settings(BaseSettings):
         """Reject development credentials outside development and test environments."""
         secret = self.SECRET_KEY.get_secret_value()
         automation_key = self.AUTOMATION_API_KEY.get_secret_value()
+        workspace_key = self.WORKSPACE_API_KEY.get_secret_value()
         if self.ENVIRONMENT in {"staging", "production"}:
             if len(secret) < 32 or "development" in secret.lower() or "change" in secret.lower():
                 raise ValueError(
@@ -79,6 +83,15 @@ class Settings(BaseSettings):
             ):
                 raise ValueError(
                     "AUTOMATION_API_KEY must be at least 32 characters and "
+                    "non-placeholder outside development"
+                )
+            if (
+                len(workspace_key) < 32
+                or "development" in workspace_key.lower()
+                or "change" in workspace_key.lower()
+            ):
+                raise ValueError(
+                    "WORKSPACE_API_KEY must be at least 32 characters and "
                     "non-placeholder outside development"
                 )
         return self

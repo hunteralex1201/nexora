@@ -2,14 +2,16 @@ import csv
 import io
 import json
 import uuid
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy import func, or_, select
 
-from app.api.dependencies import DatabaseSession, require_roles
+from app.api.dependencies import DatabaseSession, WorkspaceAdmin
 from app.config import settings
 from app.connectors import connector_registry
 from app.models.commerce import (
@@ -20,8 +22,8 @@ from app.models.commerce import (
     ProductObservation,
 )
 from app.models.source import CrawlJob, Source
-from app.models.user import User
 from app.schemas.commerce import (
+    AIChatRequest,
     AIInsightResponse,
     AIReadinessResponse,
     AlertEventResponse,
@@ -40,11 +42,16 @@ from app.schemas.commerce import (
     SourceResponse,
     SourceUpdate,
 )
-from app.services.ai import TransientAIServiceError, list_installed_models
+from app.services.ai import (
+    AIServiceError,
+    TransientAIServiceError,
+    list_installed_models,
+    stream_chat_completion,
+)
 from app.services.commerce import import_products, latest_observations, product_list_item
 
 router = APIRouter(prefix="/commerce", tags=["commerce"])
-AdminUser = Annotated[User, Depends(require_roles("admin"))]
+AdminUser = WorkspaceAdmin
 MAX_IMPORT_BYTES = 5_000_000
 MAX_IMPORT_ROWS = 5000
 
@@ -482,6 +489,31 @@ async def list_ai_insights(
     ]
 
 
+@router.post("/ai/chat", response_class=StreamingResponse)
+async def chat_with_local_ai(payload: AIChatRequest, _: AdminUser) -> StreamingResponse:
+    async def event_stream() -> AsyncIterator[str]:
+        try:
+            async for event in stream_chat_completion(payload):
+                yield json.dumps(event, separators=(",", ":")) + "\n"
+        except AIServiceError:
+            yield json.dumps(
+                {
+                    "type": "error",
+                    "content": "Local AI could not finish this response. Please try again.",
+                },
+                separators=(",", ":"),
+            ) + "\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/ai/readiness", response_model=AIReadinessResponse)
 async def ai_readiness(_: AdminUser) -> AIReadinessResponse:
     try:
@@ -526,17 +558,11 @@ async def get_overview(db: DatabaseSession, _: AdminUser) -> OverviewResponse:
         (await db.scalar(select(func.count(AlertEvent.id)).where(AlertEvent.status == "open"))) or 0
     )
     recent_jobs = list(
-        (
-            await db.scalars(
-                select(CrawlJob).order_by(CrawlJob.created_at.desc()).limit(5)
-            )
-        ).all()
+        (await db.scalars(select(CrawlJob).order_by(CrawlJob.created_at.desc()).limit(5))).all()
     )
     recent_alerts = list(
         (
-            await db.scalars(
-                select(AlertEvent).order_by(AlertEvent.triggered_at.desc()).limit(5)
-            )
+            await db.scalars(select(AlertEvent).order_by(AlertEvent.triggered_at.desc()).limit(5))
         ).all()
     )
     return OverviewResponse(

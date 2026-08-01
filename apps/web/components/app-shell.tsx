@@ -4,7 +4,6 @@ import {
   BellRing,
   BrainCircuit,
   LayoutDashboard,
-  LogOut,
   Menu,
   PackageSearch,
   RadioTower,
@@ -24,7 +23,7 @@ const navigation = [
   { href: '/products', label: 'Products', icon: PackageSearch },
   { href: '/jobs', label: 'Automation', icon: Workflow },
   { href: '/alerts', label: 'Alerts', icon: BellRing },
-  { href: '/ai', label: 'AI insights', icon: BrainCircuit },
+  { href: '/ai', label: 'AI chat', icon: BrainCircuit },
 ] as const;
 
 const pageTitles: Record<string, string> = {
@@ -33,7 +32,7 @@ const pageTitles: Record<string, string> = {
   '/products': 'Products',
   '/jobs': 'Automation',
   '/alerts': 'Alerts',
-  '/ai': 'AI insights',
+  '/ai': 'AI chat',
   '/system': 'System health',
   '/settings': 'Settings',
 };
@@ -112,15 +111,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ServerCog className="size-[17px] text-[#8f8b81]" aria-hidden="true" />
             System health
           </Link>
-          <form action="/api/auth/logout" method="post">
-            <button
-              type="submit"
-              className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-[13px] font-medium text-[#68655d] hover:bg-[#f0dfda] hover:text-[#8f3f35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b85c3d]/30"
-            >
-              <LogOut className="size-[17px]" aria-hidden="true" />
-              Sign out
-            </button>
-          </form>
         </div>
       </aside>
 
@@ -140,15 +130,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Brand compact />
           </div>
           <p className="hidden text-[13px] font-medium text-[#747168] lg:block">{pageTitle}</p>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="hidden text-xs text-[#747168] sm:block">Administrator</span>
-            <span
-              aria-hidden="true"
-              className="grid size-8 place-items-center rounded-full bg-[#dedbd3] text-[11px] font-semibold text-[#4b4943]"
-            >
-              NO
-            </span>
-          </div>
         </header>
         <main
           id="main-content"

@@ -10,7 +10,7 @@ import { JobWorkspace } from '@/components/commerce/job-workspace';
 import { OverviewDashboard } from '@/components/commerce/overview-dashboard';
 import { ProductWorkspace } from '@/components/commerce/product-workspace';
 import { SourceWorkspace } from '@/components/commerce/source-workspace';
-import { commerceRequest } from '@/lib/commerce-client';
+import { commerceRequest, streamAIChat } from '@/lib/commerce-client';
 
 vi.mock('next/link', () => ({
   default: ({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
@@ -21,7 +21,7 @@ vi.mock('next/link', () => ({
 vi.mock('@/lib/commerce-client', async () => {
   const actual =
     await vi.importActual<typeof import('@/lib/commerce-client')>('@/lib/commerce-client');
-  return { ...actual, commerceRequest: vi.fn() };
+  return { ...actual, commerceRequest: vi.fn(), streamAIChat: vi.fn() };
 });
 
 const now = '2026-08-01T10:00:00.000Z';
@@ -128,24 +128,6 @@ const alertEvent = {
   acknowledged_at: null,
 };
 
-const insight = {
-  id: 'insight-1',
-  product_id: product.id,
-  product_name: product.name,
-  source_id: source.id,
-  source_name: source.name,
-  observation_id: observation.id,
-  crawl_job_id: job.id,
-  kind: 'price_intelligence',
-  model: 'qwen3:8b',
-  prompt_version: 'v1',
-  content: 'The price decreased while the product remained in stock.',
-  confidence: '0.75',
-  evidence: { recommended_action: 'Monitor', rationale: ['The price fell by 6.25%.'] },
-  idempotency_key: 'insight-1',
-  generated_at: now,
-};
-
 function responseFor(path: string, init?: RequestInit): unknown {
   const method = init?.method ?? 'GET';
   if (path === 'overview') {
@@ -183,7 +165,6 @@ function responseFor(path: string, init?: RequestInit): unknown {
       missing_models: [],
     };
   }
-  if (path === 'ai/insights?limit=100') return [insight];
   if (path === 'imports/json' || path === 'imports/csv') {
     return {
       id: 'import-1',
@@ -210,12 +191,20 @@ function renderWorkspace(ui: ReactElement) {
 }
 
 const requestMock = vi.mocked(commerceRequest);
+const chatMock = vi.mocked(streamAIChat);
 
 describe('commerce workspaces', () => {
   beforeEach(() => {
     requestMock.mockReset();
     requestMock.mockImplementation(((path: string, init?: RequestInit) =>
       Promise.resolve(responseFor(path, init))) as typeof commerceRequest);
+    chatMock.mockReset();
+    chatMock.mockImplementation(async (_messages, onEvent) => {
+      onEvent({ type: 'start', model: 'qwen3:8b' });
+      onEvent({ type: 'token', content: 'Bangla ' });
+      onEvent({ type: 'token', content: 'response' });
+      onEvent({ type: 'done', model: 'qwen3:8b', total_duration_ms: 1250 });
+    });
   });
 
   it('renders overview metrics and recent operational activity', async () => {
@@ -283,7 +272,7 @@ describe('commerce workspaces', () => {
     expect(await screen.findByText('Imported 1 of 1 rows.')).toBeInTheDocument();
   });
 
-  it('queues supported automation and AI jobs while presenting useful run state', async () => {
+  it('queues only supported automation jobs while presenting useful run state', async () => {
     const user = userEvent.setup();
     const automation = renderWorkspace(<JobWorkspace />);
 
@@ -299,18 +288,29 @@ describe('commerce workspaces', () => {
       expect(requestMock).toHaveBeenCalledWith('jobs', expect.objectContaining({ method: 'POST' })),
     );
     automation.unmount();
+  });
 
+  it('streams a local-model conversation and starts a clean new chat', async () => {
+    const user = userEvent.setup();
     renderWorkspace(<AIWorkspace />);
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'AI insights' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('qwen3:8b')).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Source'), source.id);
-    await user.click(screen.getByRole('button', { name: 'Analyze' }));
-    expect(await screen.findByText(/analysis started/i)).toBeInTheDocument();
-    expect(
-      screen.getByText('The price decreased while the product remained in stock.'),
-    ).toBeInTheDocument();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'AI chat' })).toBeInTheDocument();
+    expect(await screen.findByText('qwen3:8b ready')).toBeInTheDocument();
+    const composer = screen.getByRole('textbox', { name: 'Message NEXORA AI' });
+    await user.type(composer, 'Banglay bolo');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+
+    expect(await screen.findByText('Bangla response')).toBeInTheDocument();
+    expect(chatMock).toHaveBeenCalledWith(
+      [{ role: 'user', content: 'Banglay bolo' }],
+      expect.any(Function),
+      expect.any(AbortSignal),
+    );
+    expect(screen.getByText(/1\.3s/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'How can I help?' })).toBeInTheDocument();
+    expect(screen.queryByText('Bangla response')).not.toBeInTheDocument();
   });
 
   it('creates alert rules and acknowledges open events', async () => {

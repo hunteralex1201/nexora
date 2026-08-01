@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import AsyncIterator
 from decimal import Decimal
 from typing import Any
 
@@ -15,6 +16,7 @@ from app.api import health as health_api
 from app.models.commerce import AIInsight, Product, ProductObservation
 from app.services import events
 from app.services.ai import TransientAIServiceError
+from tests.conftest import create_user
 from tests.test_commerce import _admin_headers, _create_source, _item
 
 
@@ -143,9 +145,7 @@ async def test_operator_secondary_workflows_and_ai_visibility(
     )
     assert updated.status_code == 200
     assert updated.json()["is_active"] is False
-    inactive_sources = await client.get(
-        "/api/v1/commerce/sources?active=false", headers=headers
-    )
+    inactive_sources = await client.get("/api/v1/commerce/sources?active=false", headers=headers)
     assert [source["id"] for source in inactive_sources.json()] == [primary["id"]]
 
     inactive_import = await client.post(
@@ -201,9 +201,7 @@ async def test_operator_secondary_workflows_and_ai_visibility(
     )
     assert observations.status_code == 200
     assert len(observations.json()) == 1
-    missing_product = await client.get(
-        f"/api/v1/commerce/products/{uuid.uuid4()}", headers=headers
-    )
+    missing_product = await client.get(f"/api/v1/commerce/products/{uuid.uuid4()}", headers=headers)
     assert missing_product.status_code == 404
 
     queued = await client.post(
@@ -295,6 +293,48 @@ async def test_operator_secondary_workflows_and_ai_visibility(
 
 
 @pytest.mark.asyncio
+async def test_workspace_key_authorizes_streaming_chat_without_opening_direct_api(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await create_user(db_session)
+    route = "/api/v1/commerce/overview"
+
+    assert (await client.get(route)).status_code == 401
+    assert (await client.get(route, headers={"X-Workspace-Key": "wrong-key"})).status_code == 401
+
+    workspace_headers = {"X-Workspace-Key": "test-only-workspace-key-with-at-least-32-characters"}
+    assert (await client.get(route, headers=workspace_headers)).status_code == 200
+
+    async def streamed_chat(_payload: Any) -> AsyncIterator[dict[str, object]]:
+        yield {"type": "start", "model": "qwen3:8b"}
+        yield {"type": "token", "content": "Bangla response"}
+        yield {"type": "done", "model": "qwen3:8b", "total_duration_ms": 42}
+
+    monkeypatch.setattr(commerce_api, "stream_chat_completion", streamed_chat)
+    response = await client.post(
+        "/api/v1/commerce/ai/chat",
+        headers=workspace_headers,
+        json={"messages": [{"role": "user", "content": "Banglay bolo"}]},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    assert [json.loads(line) for line in response.text.splitlines()] == [
+        {"type": "start", "model": "qwen3:8b"},
+        {"type": "token", "content": "Bangla response"},
+        {"type": "done", "model": "qwen3:8b", "total_duration_ms": 42},
+    ]
+
+    invalid = await client.post(
+        "/api/v1/commerce/ai/chat",
+        headers=workspace_headers,
+        json={"messages": [{"role": "assistant", "content": "No user request"}]},
+    )
+    assert invalid.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_health_dependency_probes_close_redis_and_aggregate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -350,4 +390,13 @@ def test_settings_reject_unsafe_database_and_production_automation_secrets() -> 
             DATABASE_URL="sqlite+aiosqlite:///./safe.db",
             SECRET_KEY="s" * 40,
             AUTOMATION_API_KEY="change-this-automation-key",
+        )
+
+    with pytest.raises(ValidationError, match="WORKSPACE_API_KEY"):
+        Settings(
+            ENVIRONMENT="production",
+            DATABASE_URL="sqlite+aiosqlite:///./safe.db",
+            SECRET_KEY="s" * 40,
+            AUTOMATION_API_KEY="a" * 40,
+            WORKSPACE_API_KEY="change-this-workspace-key",
         )

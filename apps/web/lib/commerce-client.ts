@@ -162,6 +162,18 @@ export interface ConnectorMetadata {
 
 export type ConnectorRegistry = Record<string, ConnectorMetadata>;
 
+export interface AIChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AIChatStreamEvent {
+  type: 'start' | 'token' | 'done' | 'error';
+  content?: string;
+  model?: string;
+  total_duration_ms?: number;
+}
+
 async function errorMessage(response: Response): Promise<string> {
   let detail = '';
   try {
@@ -195,13 +207,44 @@ export async function commerceRequest<T>(path: string, init?: RequestInit): Prom
         ? init.headers
         : { 'Content-Type': 'application/json', ...init?.headers },
   });
-  if (response.status === 401) {
-    window.location.assign('/login?error=session');
-    throw new Error('Session expired');
-  }
   if (!response.ok) throw new Error(await errorMessage(response));
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+export async function streamAIChat(
+  messages: AIChatMessage[],
+  onEvent: (event: AIChatStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/commerce/ai/chat', {
+    method: 'POST',
+    cache: 'no-store',
+    signal,
+    headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
+    body: JSON.stringify({ messages, temperature: 0.3, max_tokens: 512 }),
+  });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  if (!response.body) throw new Error('The local model returned no response.');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split('\n');
+    buffer = done ? '' : (lines.pop() ?? '');
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as AIChatStreamEvent;
+      onEvent(event);
+      if (event.type === 'error') throw new Error(event.content ?? 'Local AI could not respond.');
+    }
+    if (done) break;
+  }
 }
 
 export function formatMoney(value: string | number | null | undefined, currency = 'BDT'): string {

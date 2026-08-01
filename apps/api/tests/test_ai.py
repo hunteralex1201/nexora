@@ -10,7 +10,13 @@ import httpx
 import pytest
 
 from app.models.commerce import Product, ProductObservation
-from app.services.ai import AIServiceError, generate_price_insight, list_installed_models
+from app.schemas.commerce import AIChatRequest
+from app.services.ai import (
+    AIServiceError,
+    generate_price_insight,
+    list_installed_models,
+    stream_chat_completion,
+)
 
 
 def _product_and_observations() -> tuple[Product, list[ProductObservation]]:
@@ -177,3 +183,70 @@ async def test_ollama_model_readiness_lists_installed_models(
 
     monkeypatch.setattr("app.services.ai.httpx.AsyncClient", FakeClient)
     assert await list_installed_models() == ["qwen3:8b", "qwen3-embedding:0.6b"]
+
+
+@pytest.mark.asyncio
+async def test_ollama_streams_bounded_conversation_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        captured["payload"] = json.loads(request.content)
+        body = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "model": "qwen3:8b",
+                        "message": {"role": "assistant", "content": "Hello "},
+                        "done": False,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "model": "qwen3:8b",
+                        "message": {"role": "assistant", "content": "there"},
+                        "done": False,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "model": "qwen3:8b",
+                        "message": {"role": "assistant", "content": ""},
+                        "done": True,
+                        "total_duration": 1_500_000_000,
+                    }
+                ),
+            ]
+        )
+        return httpx.Response(200, content=body, request=request)
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.AsyncClient
+
+    def client_factory(**kwargs: Any) -> httpx.AsyncClient:
+        return real_client(transport=transport, **kwargs)
+
+    monkeypatch.setattr("app.services.ai.httpx.AsyncClient", client_factory)
+    request = AIChatRequest.model_validate(
+        {
+            "messages": [{"role": "user", "content": "Banglay uttor dao"}],
+            "temperature": 0.2,
+            "max_tokens": 256,
+        }
+    )
+    events = [event async for event in stream_chat_completion(request)]
+
+    payload = captured["payload"]
+    assert payload["stream"] is True
+    assert payload["think"] is False
+    assert payload["options"] == {"temperature": 0.2, "num_predict": 256, "num_ctx": 4096}
+    assert payload["messages"][0]["role"] == "system"
+    assert "same language" in payload["messages"][0]["content"]
+    assert payload["messages"][1] == {"role": "user", "content": "Banglay uttor dao"}
+    assert events == [
+        {"type": "start", "model": "qwen3:8b"},
+        {"type": "token", "content": "Hello "},
+        {"type": "token", "content": "there"},
+        {"type": "done", "model": "qwen3:8b", "total_duration_ms": 1500},
+    ]

@@ -1,230 +1,266 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Play, RefreshCw, Sparkles } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowUp, Bot, Plus, Square, UserRound } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-  MetricCard,
-  StatusBadge,
-} from '@/components/commerce/primitives';
 import { PageHeader } from '@/components/page-header';
 import {
   commerceRequest,
-  formatDate,
-  type AIInsight,
+  streamAIChat,
+  type AIChatMessage,
   type AIReadiness,
-  type Job,
-  type Source,
 } from '@/lib/commerce-client';
 
-function actionLabel(action: string | undefined): string {
-  if (!action) return 'Review';
-  return action.replaceAll('_', ' ');
-}
+const suggestions = [
+  'Explain how you can help me',
+  'Help me plan product research',
+  'Write a short Bangla product summary',
+];
 
 export function AIWorkspace() {
-  const queryClient = useQueryClient();
-  const [sourceId, setSourceId] = useState('');
-  const [maxProducts, setMaxProducts] = useState(20);
+  const [messages, setMessages] = useState<AIChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [error, setError] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [activeModel, setActiveModel] = useState('');
+  const [duration, setDuration] = useState<number | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
 
   const readiness = useQuery({
     queryKey: ['commerce', 'ai-readiness'],
     queryFn: () => commerceRequest<AIReadiness>('ai/readiness'),
     refetchInterval: 30_000,
   });
-  const insights = useQuery({
-    queryKey: ['commerce', 'ai-insights'],
-    queryFn: () => commerceRequest<AIInsight[]>('ai/insights?limit=100'),
-    refetchInterval: 10_000,
-  });
-  const sources = useQuery({
-    queryKey: ['commerce', 'sources'],
-    queryFn: () => commerceRequest<Source[]>('sources?active=true'),
-    refetchInterval: 10_000,
-  });
-
   const ready = readiness.data?.status === 'ready';
-  const selectedSource = (sources.data ?? []).find((source) => source.id === sourceId);
-  const canAnalyze = ready && Boolean(selectedSource?.is_active);
+  const model = activeModel || readiness.data?.expected_chat_model || 'Local AI';
 
-  const queueAnalysis = useMutation({
-    mutationFn: () =>
-      commerceRequest<Job>('jobs', {
-        method: 'POST',
-        body: JSON.stringify({
-          source_id: sourceId,
-          job_type: 'ai_analyze',
-          trigger: 'manual',
-          payload: { max_products: maxProducts },
-          idempotency_key: `ui-ai-${sourceId}-${Date.now()}`,
-        }),
-      }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['commerce'] }),
-  });
+  useEffect(() => {
+    endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' });
+  }, [messages]);
+
+  useEffect(
+    () => () => {
+      controllerRef.current?.abort();
+    },
+    [],
+  );
+
+  async function sendMessage(content: string) {
+    const prompt = content.trim();
+    if (!prompt || !ready || isStreaming) return;
+
+    const requestMessages: AIChatMessage[] = [...messages, { role: 'user', content: prompt }];
+    setMessages([...requestMessages, { role: 'assistant', content: '' }]);
+    setInput('');
+    setError('');
+    setDuration(null);
+    setIsStreaming(true);
+
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
+    try {
+      await streamAIChat(
+        requestMessages,
+        (event) => {
+          if (event.type === 'start' && event.model) setActiveModel(event.model);
+          if (event.type === 'token' && event.content) {
+            setMessages((current) => {
+              const updated = [...current];
+              const last = updated.at(-1);
+              if (last?.role === 'assistant') {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: last.content + event.content,
+                };
+              }
+              return updated;
+            });
+          }
+          if (event.type === 'done') {
+            setDuration(event.total_duration_ms ?? null);
+            if (event.model) setActiveModel(event.model);
+          }
+        },
+        controller.signal,
+      );
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === 'AbortError') return;
+      setError(caught instanceof Error ? caught.message : 'Local AI could not respond.');
+      setMessages((current) => {
+        const last = current.at(-1);
+        return last?.role === 'assistant' && !last.content ? current.slice(0, -1) : current;
+      });
+    } finally {
+      controllerRef.current = null;
+      setIsStreaming(false);
+    }
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (canAnalyze) queueAnalysis.mutate();
+    void sendMessage(input);
   }
 
-  if (readiness.isLoading || insights.isLoading || sources.isLoading)
-    return <LoadingState label="Loading AI insights" />;
-  if (readiness.error) return <ErrorState message={readiness.error.message} />;
-  if (insights.error) return <ErrorState message={insights.error.message} />;
-  if (sources.error) return <ErrorState message={sources.error.message} />;
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void sendMessage(input);
+    }
+  }
 
-  const insightRows = insights.data ?? [];
-  const averageConfidence = insightRows.length
-    ? insightRows.reduce((sum, item) => sum + Number(item.confidence ?? 0), 0) / insightRows.length
-    : 0;
+  function stopResponse() {
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    setIsStreaming(false);
+    setMessages((current) => {
+      const last = current.at(-1);
+      return last?.role === 'assistant' && !last.content ? current.slice(0, -1) : current;
+    });
+  }
+
+  function newChat() {
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    setMessages([]);
+    setInput('');
+    setError('');
+    setDuration(null);
+    setIsStreaming(false);
+  }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto flex min-h-[calc(100vh-9rem)] max-w-4xl flex-col">
       <PageHeader
-        title="AI insights"
-        description="Analyze recent product and price changes with your local model."
+        title="AI chat"
         actions={
-          <button
-            type="button"
-            onClick={() => {
-              void readiness.refetch();
-              void insights.refetch();
-            }}
-            className="nx-button-secondary"
-          >
-            <RefreshCw
-              className={`size-4 ${readiness.isFetching ? 'animate-spin' : ''}`}
-              aria-hidden="true"
-            />{' '}
-            Refresh
+          <button type="button" onClick={newChat} className="nx-button-secondary">
+            <Plus className="size-4" aria-hidden="true" /> New chat
           </button>
         }
       />
 
-      <div className="mt-6 flex items-center gap-2 text-xs text-[#747168]">
+      <div className="mt-4 flex items-center gap-2 text-xs text-[#747168]" aria-live="polite">
         <span
           className={`size-2 rounded-full ${ready ? 'status-pulse bg-[#287a55]' : 'bg-[#a5463c]'}`}
           aria-hidden="true"
         />
-        {ready
-          ? `${readiness.data?.expected_chat_model ?? 'Local model'} is ready`
-          : `Model unavailable${readiness.data?.missing_models.length ? ` · Missing ${readiness.data.missing_models.join(', ')}` : ''}`}
+        {readiness.isLoading
+          ? 'Checking local model…'
+          : ready
+            ? `${model} ready`
+            : 'Local model unavailable'}
+        {duration !== null && !isStreaming ? ` · ${(duration / 1000).toFixed(1)}s` : ''}
       </div>
 
-      <section className="mt-4 grid gap-3 sm:grid-cols-3" aria-label="AI summary">
-        <MetricCard label="Model" value={readiness.data?.expected_chat_model ?? '—'} />
-        <MetricCard label="Saved insights" value={insightRows.length} />
-        <MetricCard
-          label="Average confidence"
-          value={insightRows.length ? `${Math.round(averageConfidence * 100)}%` : '—'}
-        />
-      </section>
-
-      <form onSubmit={submit} className="nx-panel mt-5 p-4 sm:p-5">
-        <div className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
-          <label className="nx-label">
-            Source
-            <select
-              required
-              value={selectedSource ? sourceId : ''}
-              onChange={(event) => setSourceId(event.target.value)}
-              className="nx-input"
-            >
-              <option value="">Choose a source</option>
-              {(sources.data ?? []).map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name}
-                </option>
+      <section className="flex flex-1 flex-col py-8" aria-label="Conversation">
+        {messages.length === 0 ? (
+          <div className="my-auto flex flex-col items-center py-12 text-center">
+            <div className="grid size-11 place-items-center rounded-2xl bg-[#eee5dc] text-[#9d4b32]">
+              <Bot className="size-5" aria-hidden="true" />
+            </div>
+            <h2 className="mt-5 text-2xl font-semibold tracking-[-0.035em] text-[#2f2d28]">
+              How can I help?
+            </h2>
+            <div className="mt-7 grid w-full max-w-xl gap-2 sm:grid-cols-3">
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  disabled={!ready}
+                  onClick={() => void sendMessage(suggestion)}
+                  className="rounded-xl border border-[#dedbd2] bg-white px-4 py-3 text-left text-[13px] leading-5 text-[#56534c] shadow-[0_1px_2px_rgba(44,40,32,0.03)] transition hover:border-[#cfc9bd] hover:bg-[#fbfaf7] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {suggestion}
+                </button>
               ))}
-            </select>
-          </label>
-          <label className="nx-label">
-            Products
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={maxProducts}
-              onChange={(event) =>
-                setMaxProducts(Math.max(1, Math.min(100, Number(event.target.value))))
-              }
-              className="nx-input"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={!canAnalyze || queueAnalysis.isPending}
-            className="nx-button md:min-w-40"
-          >
-            <Play className="size-4" aria-hidden="true" />{' '}
-            {queueAnalysis.isPending ? 'Starting…' : 'Analyze'}
-          </button>
-        </div>
-        {queueAnalysis.error ? (
-          <p className="mt-3 text-[13px] text-[#a5463c]">{queueAnalysis.error.message}</p>
-        ) : null}
-        {queueAnalysis.isSuccess ? (
-          <p className="mt-3 flex items-center gap-2 text-[13px] text-[#287a55]">
-            <CheckCircle2 className="size-4" aria-hidden="true" /> Analysis started. Results will
-            appear here.
-          </p>
-        ) : null}
-      </form>
-
-      <section className="nx-panel mt-5 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-[#e4e1d9] px-5 py-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-[#b85c3d]" aria-hidden="true" />
-            <h2 className="text-[13px] font-semibold text-[#3b3933]">Latest insights</h2>
+            </div>
           </div>
-          <span className="text-[11px] text-[#9d998f]">Updates automatically</span>
-        </div>
-        {insightRows.length ? (
-          <div className="divide-y divide-[#ece9e2]">
-            {insightRows.map((insight) => (
-              <article key={insight.id} className="px-5 py-5 sm:px-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#3b3933]">{insight.product_name}</p>
-                    <p className="mt-1 text-xs text-[#8f8b81]">
-                      {insight.source_name} · {formatDate(insight.generated_at)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={actionLabel(insight.evidence.recommended_action)} />
-                    <span className="text-xs font-semibold text-[#9d4b32]">
-                      {insight.confidence
-                        ? `${Math.round(Number(insight.confidence) * 100)}%`
-                        : '—'}
+        ) : (
+          <div className="space-y-7" aria-live="polite">
+            {messages.map((message, index) => (
+              <article
+                key={`${message.role}-${index}`}
+                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {message.role === 'assistant' ? (
+                  <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-[#eee5dc] text-[#9d4b32]">
+                    <Bot className="size-4" aria-hidden="true" />
+                  </span>
+                ) : null}
+                <div
+                  className={
+                    message.role === 'user'
+                      ? 'max-w-[82%] rounded-2xl rounded-br-md bg-[#eee9df] px-4 py-3 text-sm leading-6 text-[#34322d]'
+                      : 'max-w-[88%] whitespace-pre-wrap pt-1 text-sm leading-7 text-[#3f3d37]'
+                  }
+                >
+                  {message.content || (
+                    <span className="inline-flex gap-1 pt-2" aria-label="AI is thinking">
+                      <span className="size-1.5 animate-pulse rounded-full bg-[#b8b2a7]" />
+                      <span className="size-1.5 animate-pulse rounded-full bg-[#b8b2a7] [animation-delay:150ms]" />
+                      <span className="size-1.5 animate-pulse rounded-full bg-[#b8b2a7] [animation-delay:300ms]" />
                     </span>
-                  </div>
+                  )}
                 </div>
-                <p className="mt-4 max-w-4xl text-[13px] leading-6 text-[#4b4943]">
-                  {insight.content}
-                </p>
-                {insight.evidence.rationale?.length ? (
-                  <ul className="mt-3 grid gap-1 text-xs leading-5 text-[#858178]">
-                    {insight.evidence.rationale.slice(0, 3).map((reason) => (
-                      <li key={reason}>— {reason}</li>
-                    ))}
-                  </ul>
+                {message.role === 'user' ? (
+                  <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-[#dedbd3] text-[#5f5c54]">
+                    <UserRound className="size-4" aria-hidden="true" />
+                  </span>
                 ) : null}
               </article>
             ))}
-          </div>
-        ) : (
-          <div className="p-5">
-            <EmptyState
-              title="No insights yet"
-              description="Choose a source and run an analysis."
-            />
+            <div ref={endRef} />
           </div>
         )}
       </section>
+
+      <div className="sticky bottom-0 -mx-1 bg-[linear-gradient(to_bottom,transparent_0%,#f7f5f0_18%)] px-1 pb-1 pt-6">
+        {error ? (
+          <div role="alert" className="mb-2 text-center text-[13px] text-[#a5463c]">
+            {error}
+          </div>
+        ) : null}
+        <form
+          onSubmit={submit}
+          className="rounded-2xl border border-[#d5d0c6] bg-white p-2 shadow-[0_10px_35px_rgba(44,40,32,0.10)] focus-within:border-[#b9b2a6]"
+        >
+          <label htmlFor="ai-message" className="sr-only">
+            Message NEXORA AI
+          </label>
+          <textarea
+            id="ai-message"
+            value={input}
+            onChange={(event) => setInput(event.target.value.slice(0, 8000))}
+            onKeyDown={handleKeyDown}
+            rows={2}
+            disabled={!ready || isStreaming}
+            placeholder={ready ? 'Message NEXORA AI…' : 'Local model is unavailable'}
+            className="max-h-44 min-h-14 w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 text-[#34322d] outline-none placeholder:text-[#a8a39a] disabled:cursor-not-allowed"
+          />
+          <div className="flex items-center justify-between gap-3 px-2 pb-1">
+            <span className="text-[11px] text-[#aaa59b]">
+              Enter to send · Shift+Enter for line break
+            </span>
+            {isStreaming ? (
+              <button type="button" onClick={stopResponse} className="nx-button !min-h-9 !px-3">
+                <Square className="size-3.5 fill-current" aria-hidden="true" /> Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!ready || !input.trim()}
+                className="grid size-9 place-items-center rounded-xl bg-[#2f2d28] text-white transition hover:bg-[#47443d] disabled:cursor-not-allowed disabled:bg-[#d8d4cc]"
+                aria-label="Send message"
+              >
+                <ArrowUp className="size-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
