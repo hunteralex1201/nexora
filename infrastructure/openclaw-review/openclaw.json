@@ -1,0 +1,66 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "auth": {
+      "mode": "token"
+    }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "agents": {
+    "defaults": {
+      "elevatedDefault": "off",
+      "sandbox": {
+        "mode": "all",
+        "backend": "docker",
+        "scope": "session",
+        "workspaceAccess": "none",
+        "docker": {
+          "image": "openclaw-sandbox:bookworm-slim",
+          "readOnlyRoot": true,
+          "tmpfs": ["/tmp", "/var/tmp", "/run"],
+          "network": "none",
+          "capDrop": ["ALL"]
+        }
+      }
+    }
+  },
+  "tools": {
+    "profile": "minimal",
+    "deny": [
+      "group:automation",
+      "group:runtime",
+      "group:fs",
+      "group:web",
+      "group:ui",
+      "group:messaging",
+      "group:nodes",
+      "group:agents",
+      "group:media",
+      "group:plugins",
+      "cron",
+      "gateway",
+      "sessions_spawn",
+      "sessions_send"
+    ],
+    "exec": {
+      "host": "sandbox",
+      "security": "deny",
+      "ask": "always"
+    },
+    "elevated": {
+      "enabled": false
+    },
+    "codeMode": {
+      "enabled": false
+    },
+    "fs": {
+      "workspaceOnly": true
+    }
+  },
+  "plugins": {
+    "allow": []
+  }
+}

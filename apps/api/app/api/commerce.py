@@ -25,6 +25,7 @@ from app.models.source import CrawlJob, Source
 from app.schemas.commerce import (
     AIChatRequest,
     AIInsightResponse,
+    AIModelRegistryResponse,
     AIReadinessResponse,
     AlertEventResponse,
     AlertRuleCreate,
@@ -48,6 +49,7 @@ from app.services.ai import (
     list_installed_models,
     stream_chat_completion,
 )
+from app.services.ai_routing import build_model_registry
 from app.services.commerce import import_products, latest_observations, product_list_item
 
 router = APIRouter(prefix="/commerce", tags=["commerce"])
@@ -207,7 +209,7 @@ async def import_product_csv(
         decoded = content.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="CSV file must be UTF-8 encoded",
         ) from exc
 
@@ -215,7 +217,7 @@ async def import_product_csv(
     required = {"external_id", "name", "canonical_url", "price"}
     if reader.fieldnames is None or not required.issubset(set(reader.fieldnames)):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="CSV requires external_id, name, canonical_url, and price columns",
         )
 
@@ -236,7 +238,7 @@ async def import_product_csv(
 
     if rows_received == 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="CSV contains no data rows",
         )
 
@@ -411,7 +413,7 @@ async def create_alert_rule(
             raise _not_found("Product")
         if payload.source_id is not None and product.source_id != payload.source_id:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Product does not belong to the selected source",
             )
 
@@ -511,6 +513,16 @@ async def chat_with_local_ai(payload: AIChatRequest, _: AdminUser) -> StreamingR
             "Cache-Control": "no-store",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@router.get("/ai/models", response_model=AIModelRegistryResponse)
+async def ai_model_registry(_: AdminUser) -> AIModelRegistryResponse:
+    """Return the server-controlled model registry without credentials or provider URLs."""
+    return AIModelRegistryResponse(
+        policy_version=settings.AI_POLICY_VERSION,
+        allow_route_hints=settings.AI_ALLOW_ROUTE_HINTS,
+        models=[item.public_dict() for item in build_model_registry()],
     )
 
 

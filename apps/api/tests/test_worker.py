@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import TransientConnectorError
+from app.models.ai import AIExecution, AIProviderAttempt
 from app.models.commerce import Product, ProductObservation
 from app.services.ai import GeneratedInsight, StructuredInsight, build_price_facts
 from app.services.worker import claim_job, process_claimed_job
@@ -128,7 +131,8 @@ async def test_worker_persists_evidence_grounded_ai_insight(
         )
 
     monkeypatch.setattr("app.services.worker.publish_event", _ignore_event)
-    monkeypatch.setattr("app.services.worker.generate_price_insight", fake_generate)
+    monkeypatch.setattr("app.services.ai_gateway.generate_price_insight", fake_generate)
+
     claimed = await claim_job()
     assert str(claimed) == response.json()["id"]
     assert claimed is not None
@@ -145,6 +149,26 @@ async def test_worker_persists_evidence_grounded_ai_insight(
     assert insight["evidence"]["facts"]["latest"]["price"] == "88.00"
     assert insight["observation_id"] is not None
     assert insight["crawl_job_id"] == response.json()["id"]
+    assert insight["ai_execution_id"] is not None
+
+    execution = await db_session.scalar(
+        select(AIExecution).where(AIExecution.id == uuid.UUID(insight["ai_execution_id"]))
+    )
+    assert execution is not None
+    assert execution.status == "succeeded"
+    assert execution.policy_version == "ai-routing-v1"
+    assert execution.selected_provider == "ollama"
+    assert execution.input_fingerprint
+    attempts = list(
+        (
+            await db_session.scalars(
+                select(AIProviderAttempt).where(AIProviderAttempt.ai_execution_id == execution.id)
+            )
+        ).all()
+    )
+    assert len(attempts) == 1
+    assert attempts[0].status == "succeeded"
+    assert attempts[0].provider == "ollama"
 
 
 @pytest.mark.asyncio
@@ -162,11 +186,15 @@ async def test_worker_requeues_transient_connector_failure(
             "source_id": source["id"],
             "job_type": "collect",
             "trigger": "manual",
-            "payload": {"items": [_item(
-                price="50.00",
-                observed_at="2026-08-01T06:00:00Z",
-                evidence="retry-input",
-            )]},
+            "payload": {
+                "items": [
+                    _item(
+                        price="50.00",
+                        observed_at="2026-08-01T06:00:00Z",
+                        evidence="retry-input",
+                    )
+                ]
+            },
             "idempotency_key": "worker-transient-retry-0001",
             "max_attempts": 3,
         },

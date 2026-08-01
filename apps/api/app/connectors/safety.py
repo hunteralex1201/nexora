@@ -87,9 +87,7 @@ async def _stream_limited(client: httpx.AsyncClient, url: str) -> SafeResponse:
         if declared_length:
             try:
                 if int(declared_length) > MAX_RESPONSE_BYTES:
-                    raise ConnectorSafetyError(
-                        "Target response exceeded the 2 MB safety limit"
-                    )
+                    raise ConnectorSafetyError("Target response exceeded the 2 MB safety limit")
             except ValueError as exc:
                 raise ConnectorSafetyError("Target returned an invalid content length") from exc
 

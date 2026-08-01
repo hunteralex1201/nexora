@@ -33,9 +33,7 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
-def _observation_key(
-    *, source_id: uuid.UUID, item: ProductImportItem, evidence_hash: str
-) -> str:
+def _observation_key(*, source_id: uuid.UUID, item: ProductImportItem, evidence_hash: str) -> str:
     payload = {
         "source_id": str(source_id),
         "external_id": item.external_id,
@@ -62,9 +60,7 @@ def _evidence_payload(
     return supplied
 
 
-async def _upsert_product(
-    db: AsyncSession, source: Source, item: ProductImportItem
-) -> Product:
+async def _upsert_product(db: AsyncSession, source: Source, item: ProductImportItem) -> Product:
     statement = select(Product).where(
         Product.source_id == source.id,
         Product.external_id == item.external_id,
@@ -285,9 +281,7 @@ def product_list_item(
     previous_price = observations[1].price if len(observations) > 1 else None
     change: Decimal | None = None
     if latest is not None and previous_price is not None and previous_price > 0:
-        change = ((latest.price - previous_price) / previous_price * 100).quantize(
-            Decimal("0.01")
-        )
+        change = ((latest.price - previous_price) / previous_price * 100).quantize(Decimal("0.01"))
 
     return ProductListItem(
         id=product.id,

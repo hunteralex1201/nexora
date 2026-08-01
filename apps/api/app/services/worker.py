@@ -2,26 +2,20 @@ import asyncio
 import signal
 import uuid
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import and_, or_, select
-from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.connectors import ConnectorError, TransientConnectorError, connector_for
 from app.database import AsyncSessionLocal, close_database
 from app.logger import setup_logger
-from app.models.commerce import AIInsight, Product, ProductObservation
 from app.models.source import CrawlJob, Source
 from app.models.user import User
 from app.schemas.commerce import ProductImportItem
-from app.services.ai import (
-    PROMPT_VERSION,
-    TransientAIServiceError,
-    generate_price_insight,
-)
+from app.services.ai import TransientAIServiceError
+from app.services.ai_jobs import analyze_price_job
 from app.services.commerce import import_products
 from app.services.events import publish_event
 
@@ -106,9 +100,7 @@ async def _load_job_context(job_id: uuid.UUID) -> tuple[CrawlJob, Source, User |
         return job, source, user
 
 
-async def _collect_job(
-    job: CrawlJob, source: Source, user: User | None
-) -> dict[str, Any]:
+async def _collect_job(job: CrawlJob, source: Source, user: User | None) -> dict[str, Any]:
     connector = connector_for(source.type)
     result = await connector.collect(source, dict(job.payload))
     async with AsyncSessionLocal() as db:
@@ -136,9 +128,7 @@ async def _collect_job(
         }
 
 
-async def _import_job(
-    job: CrawlJob, source: Source, user: User | None
-) -> dict[str, Any]:
+async def _import_job(job: CrawlJob, source: Source, user: User | None) -> dict[str, Any]:
     raw_items = job.payload.get("items")
     if not isinstance(raw_items, list) or not raw_items:
         raise ConnectorError("Import job requires a non-empty items array")
@@ -167,92 +157,7 @@ async def _import_job(
 
 
 async def _analyze_job(job: CrawlJob, source: Source) -> dict[str, Any]:
-    max_products = max(1, min(int(job.payload.get("max_products", 20)), 100))
-    async with AsyncSessionLocal() as db:
-        product_ids = list(
-            (
-                await db.scalars(
-                    select(Product.id)
-                    .where(
-                        Product.source_id == source.id,
-                        Product.is_active.is_(True),
-                    )
-                    .order_by(Product.last_seen_at.desc(), Product.id.asc())
-                    .limit(max_products)
-                )
-            ).all()
-        )
-
-    generated_count = 0
-    skipped_count = 0
-    observation_count = 0
-    for product_id in product_ids:
-        async with AsyncSessionLocal() as db:
-            product = await db.get(Product, product_id)
-            observations = list(
-                (
-                    await db.scalars(
-                        select(ProductObservation)
-                        .where(ProductObservation.product_id == product_id)
-                        .order_by(ProductObservation.observed_at.desc())
-                        .limit(3)
-                    )
-                ).all()
-            )
-            if product is None or not observations:
-                skipped_count += 1
-                continue
-            idempotency_material = (
-                f"{product.id}:{observations[0].evidence_hash}:"
-                f"{settings.OLLAMA_CHAT_MODEL}:{PROMPT_VERSION}"
-            )
-            idempotency_key = f"ai:{uuid.uuid5(uuid.NAMESPACE_URL, idempotency_material).hex}"
-            existing = await db.scalar(
-                select(AIInsight.id).where(AIInsight.idempotency_key == idempotency_key)
-            )
-            if existing is not None:
-                skipped_count += 1
-                continue
-            db.expunge(product)
-            for observation in observations:
-                db.expunge(observation)
-
-        generated = await generate_price_insight(product, observations)
-        output = generated.output
-        insight = AIInsight(
-            product_id=product.id,
-            observation_id=observations[0].id,
-            crawl_job_id=job.id,
-            kind="price_intelligence",
-            model=generated.model,
-            prompt_version=generated.prompt_version,
-            content=output.summary,
-            confidence=Decimal(str(output.confidence)),
-            evidence={
-                "facts": generated.facts,
-                "recommended_action": output.recommended_action,
-                "rationale": output.rationale,
-                "observation_ids": [str(item.id) for item in observations],
-            },
-            idempotency_key=idempotency_key,
-        )
-        try:
-            async with AsyncSessionLocal() as db, db.begin():
-                db.add(insight)
-        except IntegrityError:
-            skipped_count += 1
-            continue
-        generated_count += 1
-        observation_count += len(observations)
-
-    return {
-        "products_considered": len(product_ids),
-        "insights_generated": generated_count,
-        "insights_skipped": skipped_count,
-        "evidence_observations": observation_count,
-        "model": settings.OLLAMA_CHAT_MODEL,
-        "prompt_version": PROMPT_VERSION,
-    }
+    return await analyze_price_job(job, source)
 
 
 async def execute_job(job_id: uuid.UUID) -> dict[str, Any]:

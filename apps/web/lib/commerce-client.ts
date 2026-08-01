@@ -135,6 +135,7 @@ export interface AIInsight {
   source_name: string;
   observation_id: string | null;
   crawl_job_id: string | null;
+  ai_execution_id: string | null;
   kind: string;
   model: string;
   prompt_version: string;
@@ -156,6 +157,23 @@ export interface AIReadiness {
   expected_embedding_model: string;
   installed_models: string[];
   missing_models: string[];
+}
+
+export interface AIModelDescriptor {
+  provider: 'ollama' | 'cloud' | 'manus';
+  model: string;
+  identifier: string;
+  execution_mode: 'synchronous' | 'asynchronous';
+  task_classes: string[];
+  enabled: boolean;
+  configured: boolean;
+  external: boolean;
+}
+
+export interface AIModelRegistry {
+  policy_version: string;
+  allow_route_hints: boolean;
+  models: AIModelDescriptor[];
 }
 
 export interface ConnectorMetadata {

@@ -1,7 +1,8 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError as JWTDecodeError
 from pwdlib import PasswordHash
 from pydantic import ValidationError
 
@@ -58,8 +59,8 @@ def decode_access_token(token: str) -> TokenPayload:
             token,
             settings.SECRET_KEY.get_secret_value(),
             algorithms=[settings.ALGORITHM],
-            options={"require_exp": True, "require_sub": True},
+            options={"require": ["exp", "sub"]},
         )
         return TokenPayload.model_validate(claims)
-    except (JWTError, ValidationError, ValueError) as exc:
+    except (JWTDecodeError, ValidationError, ValueError) as exc:
         raise InvalidTokenError("Invalid or expired access token") from exc

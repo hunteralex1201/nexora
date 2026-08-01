@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from pydantic import SecretStr
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.commerce import _daily_count_map
+from app.config import settings
+from app.models.ai import AIExecution, AIProviderAttempt, ManusDelegation
 from app.models.source import CrawlJob
+from app.services.manus import CreatedManusTask
 from tests.conftest import create_user
 from tests.test_auth import login
 
@@ -90,6 +96,7 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
     db_session: AsyncSession,
 ) -> None:
     headers = await _admin_headers(client, db_session)
+    fixture_day = datetime.now(UTC).date().isoformat()
 
     connectors = await client.get("/api/v1/commerce/connectors", headers=headers)
     assert connectors.status_code == 200
@@ -107,7 +114,7 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
             "items": [
                 _item(
                     price="100.00",
-                    observed_at="2026-08-01T00:00:00Z",
+                    observed_at=f"{fixture_day}T00:00:00Z",
                     evidence="initial",
                 )
             ],
@@ -123,9 +130,7 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
     product = products.json()["items"][0]
     product_id = product["id"]
     assert product["latest_observation"]["price"] == "100.00"
-    assert product["latest_observation"]["evidence"]["fact_class"] == (
-        "public_observation"
-    )
+    assert product["latest_observation"]["evidence"]["fact_class"] == ("public_observation")
     assert len(product["latest_observation"]["evidence_hash"]) == 64
 
     rule = await client.post(
@@ -151,7 +156,7 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
             "items": [
                 _item(
                     price="80.00",
-                    observed_at="2026-08-01T02:00:00Z",
+                    observed_at=f"{fixture_day}T02:00:00Z",
                     evidence="price-drop",
                 )
             ],
@@ -159,9 +164,7 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
     )
     assert second_import.status_code == 201, second_import.text
 
-    detail = await client.get(
-        f"/api/v1/commerce/products/{product_id}", headers=headers
-    )
+    detail = await client.get(f"/api/v1/commerce/products/{product_id}", headers=headers)
     assert detail.status_code == 200
     payload = detail.json()
     assert len(payload["history"]) == 2
@@ -169,9 +172,7 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
     assert payload["previous_price"] == "100.00"
     assert payload["price_change_percent"] == "-20.00"
 
-    events = await client.get(
-        "/api/v1/commerce/alerts/events?status=open", headers=headers
-    )
+    events = await client.get("/api/v1/commerce/alerts/events?status=open", headers=headers)
     assert events.status_code == 200
     assert len(events.json()) == 1
     event = events.json()[0]
@@ -186,7 +187,7 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
     assert overview.json()["alerts"] == {"total": 1, "open": 1}
     activity = overview.json()["activity"]
     assert len(activity) == 14
-    assert activity[-1]["day"] == "2026-08-01"
+    assert activity[-1]["day"] == fixture_day
     assert activity[-1]["observations"] == 2
     assert activity[-1]["alerts"] == 1
 
@@ -202,19 +203,19 @@ async def test_admin_can_run_evidence_backed_commerce_workflow(
         "source_id": source_id,
         "job_type": "collect",
         "trigger": "manual",
-        "payload": {"items": [_item(
-            price="75.00",
-            observed_at="2026-08-01T03:00:00Z",
-            evidence="worker",
-        )]},
+        "payload": {
+            "items": [
+                _item(
+                    price="75.00",
+                    observed_at=f"{fixture_day}T03:00:00Z",
+                    evidence="worker",
+                )
+            ]
+        },
         "idempotency_key": "manual-fixture-collection-0001",
     }
-    first_job = await client.post(
-        "/api/v1/commerce/jobs", headers=headers, json=job_payload
-    )
-    repeated_job = await client.post(
-        "/api/v1/commerce/jobs", headers=headers, json=job_payload
-    )
+    first_job = await client.post("/api/v1/commerce/jobs", headers=headers, json=job_payload)
+    repeated_job = await client.post("/api/v1/commerce/jobs", headers=headers, json=job_payload)
     assert first_job.status_code == 201
     assert repeated_job.status_code == 201
     assert repeated_job.json()["id"] == first_job.json()["id"]
@@ -229,7 +230,7 @@ async def test_csv_import_audits_valid_and_invalid_rows(
     source = await _create_source(client, headers)
     csv_content = (
         "external_id,name,canonical_url,price,currency,availability,attributes,evidence\n"
-        'sku-1,Valid Product,https://fixture.example/products/1,25.50,BDT,in_stock,"{}","{\"\"row\"\":1}"\n'
+        'sku-1,Valid Product,https://fixture.example/products/1,25.50,BDT,in_stock,"{}","{""row"":1}"\n'
         "sku-2,Invalid Product,not-a-url,abc,BDT,unknown,{},{}\n"
     )
 
@@ -296,10 +297,75 @@ async def test_n8n_automation_key_and_idempotent_scheduling(
     ai_run = await client.post(
         "/api/v1/commerce/automation/ai",
         headers=automation_headers,
-        json={"run_id": "n8n-ai-2026-08-01", "max_products": 5},
+        json={
+            "run_id": "n8n-ai-2026-08-01",
+            "max_products": 5,
+            "data_class": "public",
+            "requested_provider": "cloud",
+            "requested_model": "allowlisted-model-hint",
+        },
     )
     assert ai_run.status_code == 200
     assert len(ai_run.json()["queued_job_ids"]) == 2
+    queued_job = await db_session.get(CrawlJob, uuid.UUID(ai_run.json()["queued_job_ids"][0]))
+    assert queued_job is not None
+    assert queued_job.payload["data_class"] == "public"
+    assert queued_job.payload["requested_provider"] == "cloud"
+    assert queued_job.payload["requested_model"] == "allowlisted-model-hint"
+
+
+@pytest.mark.asyncio
+async def test_n8n_manus_research_is_idempotent_and_persisted(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "MANUS_ENABLED", True)
+    monkeypatch.setattr(settings, "MANUS_API_KEY", SecretStr("test-manus-secret"))
+    monkeypatch.setattr(settings, "MANUS_PROJECT_ID", "test-nexora-project")
+    captured: dict[str, Any] = {}
+
+    async def fake_create_task(self: Any, **kwargs: Any) -> CreatedManusTask:
+        captured.update(kwargs)
+        return CreatedManusTask(
+            task_id="manus-task-001",
+            title=kwargs["title"],
+            task_url="https://manus.im/app/manus-task-001",
+            request_id="manus-request-001",
+            profile="manus-1.6",
+        )
+
+    monkeypatch.setattr("app.api.automation.ManusClient.create_task", fake_create_task)
+    headers = {"X-Automation-Key": AUTOMATION_KEY}
+    request = {
+        "run_id": "n8n-research-2026-08-01",
+        "title": "NEXORA market research",
+        "prompt": "Research the approved public market and return sourced findings only.",
+        "data_class": "public",
+    }
+
+    first = await client.post("/api/v1/commerce/automation/research", headers=headers, json=request)
+    assert first.status_code == 200, first.text
+    assert first.json()["task_id"] == "manus-task-001"
+    assert first.json()["idempotent_replay"] is False
+    assert captured["prompt"] == request["prompt"]
+
+    replay = await client.post(
+        "/api/v1/commerce/automation/research", headers=headers, json=request
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["ai_execution_id"] == first.json()["ai_execution_id"]
+    assert replay.json()["task_id"] == first.json()["task_id"]
+    assert replay.json()["idempotent_replay"] is True
+
+    execution = await db_session.get(AIExecution, uuid.UUID(first.json()["ai_execution_id"]))
+    assert execution is not None
+    assert execution.status == "delegated"
+    assert execution.selected_provider == "manus"
+    assert execution.input_fingerprint != request["prompt"]
+    assert request["prompt"] not in repr(execution.routing)
+    assert await db_session.scalar(select(func.count(ManusDelegation.id))) == 1
+    assert await db_session.scalar(select(func.count(AIProviderAttempt.id))) == 1
 
 
 @pytest.mark.asyncio

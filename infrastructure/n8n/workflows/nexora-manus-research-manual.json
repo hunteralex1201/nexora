@@ -1,0 +1,115 @@
+{
+  "id": "nexora-manus-research-manual",
+  "name": "NEXORA - Manus Strategic Research (Manual, Disabled)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manus-manual-trigger",
+      "name": "Manual Approval Gate",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 320]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "research-run-id",
+              "name": "run_id",
+              "value": "={{ 'manus-review-' + $now.toFormat('yyyyMMdd-HHmmss') }}",
+              "type": "string"
+            },
+            {
+              "id": "research-title",
+              "name": "title",
+              "value": "NEXORA operator-approved strategic research",
+              "type": "string"
+            },
+            {
+              "id": "research-prompt",
+              "name": "prompt",
+              "value": "Replace this sentence with an operator-reviewed strategic research brief. Do not include credentials, private customer data, or restricted fields.",
+              "type": "string"
+            },
+            {
+              "id": "research-data-class",
+              "name": "data_class",
+              "value": "internal",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "manus-research-brief",
+      "name": "Review Research Brief",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [500, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXORA_API_BASE_URL + '/commerce/automation/research' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Automation-Key",
+              "value": "={{ $env.NEXORA_AUTOMATION_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, title: $json.title, prompt: $json.prompt, data_class: $json.data_class, connector_ids: [], skill_ids: [] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "manus-research-request",
+      "name": "Delegate Through NEXORA Policy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [790, 320],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Manual Approval Gate": {
+      "main": [
+        [
+          {
+            "node": "Review Research Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Research Brief": {
+      "main": [
+        [
+          {
+            "node": "Delegate Through NEXORA Policy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dhaka",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "pinData": {},
+  "tags": []
+}

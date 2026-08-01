@@ -155,8 +155,7 @@ class JsonLdProductConnector:
                 user_agent=str(
                     source.config.get(
                         "user_agent",
-                        "NEXORA-Intelligence/1.0 "
-                        "(+operator-managed public data collection)",
+                        "NEXORA-Intelligence/1.0 " "(+operator-managed public data collection)",
                     )
                 ),
             )

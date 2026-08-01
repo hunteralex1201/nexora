@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 
-import { AgentWorkspace } from '@/components/commerce/agent-workspace';
+import { AgentsWorkspace } from '@/components/commerce/agents-workspace';
 
 export const metadata: Metadata = {
-  title: 'Agent Operations',
+  title: 'AI Agent Control Center',
 };
 
 export default function AgentsPage() {
-  return <AgentWorkspace />;
+  return <AgentsWorkspace />;
 }

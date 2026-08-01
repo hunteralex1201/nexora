@@ -4,6 +4,10 @@
 	}
 }
 
+www.{$NEXORA_HOST} {
+	redir https://{$NEXORA_HOST}{uri} permanent
+}
+
 {$NEXORA_HOST} {
 	encode zstd gzip
 

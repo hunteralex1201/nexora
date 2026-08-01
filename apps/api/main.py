@@ -13,10 +13,15 @@ from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.agents import router as agents_router
 from app.api.auth import router as auth_router
 from app.api.automation import router as automation_router
 from app.api.commerce import router as commerce_router
+from app.api.dropshipping import router as dropshipping_router
 from app.api.health import router as health_router
+from app.api.seo_leads import router as seo_leads_router
+from app.api.sourcing import router as sourcing_router
+from app.api.webhooks import router as webhooks_router
 from app.config import settings
 from app.database import close_database
 from app.logger import setup_logger
@@ -101,6 +106,13 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(commerce_router, prefix="/api/v1")
 app.include_router(automation_router, prefix="/api/v1")
+app.include_router(webhooks_router, prefix="/api/v1")
+app.include_router(sourcing_router, prefix="/api/v1")
+
+app.include_router(dropshipping_router, prefix="/api/v1")
+
+app.include_router(agents_router, prefix="/api/v1")
+app.include_router(seo_leads_router, prefix="/api/v1")
 
 Instrumentator(
     excluded_handlers=["/metrics", "/api/v1/health"],
@@ -151,7 +163,7 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content=_error_payload(
             request,
             code="validation_error",

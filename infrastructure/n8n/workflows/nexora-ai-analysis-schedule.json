@@ -44,7 +44,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ run_id: 'ai-' + $now.toFormat('yyyyMMdd'), max_products: 20 }) }}",
+        "body": "={{ JSON.stringify({ run_id: 'ai-' + $now.toFormat('yyyyMMdd'), max_products: 20, data_class: 'internal' }) }}",
         "options": {
           "timeout": 30000
         }

@@ -276,7 +276,14 @@ class AIInsight(Base):
         nullable=True,
         index=True,
     )
+    ai_execution_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("ai_executions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     kind: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+
     model: Mapped[str] = mapped_column(String(255), nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(100), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -286,4 +293,3 @@ class AIInsight(Base):
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
-

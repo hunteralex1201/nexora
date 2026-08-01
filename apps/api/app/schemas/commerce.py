@@ -269,6 +269,9 @@ class AutomationRunRequest(BaseModel):
     run_id: str = Field(min_length=1, max_length=128)
     source_ids: list[uuid.UUID] | None = None
     max_products: int = Field(default=20, ge=1, le=100)
+    data_class: Literal["public", "internal", "restricted"] = "internal"
+    requested_provider: Literal["ollama", "cloud"] | None = None
+    requested_model: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class AutomationRunResponse(BaseModel):
@@ -277,6 +280,25 @@ class AutomationRunResponse(BaseModel):
     queued_job_ids: list[uuid.UUID]
     skipped_source_ids: list[uuid.UUID]
     active_source_count: int
+
+
+class AutomationResearchRequest(BaseModel):
+    run_id: str = Field(min_length=1, max_length=128)
+    title: str = Field(min_length=3, max_length=255)
+    prompt: str = Field(min_length=10, max_length=50_000)
+    data_class: Literal["public", "internal"] = "internal"
+    agent_profile: str | None = Field(default=None, min_length=1, max_length=100)
+    connector_ids: list[str] = Field(default_factory=list, max_length=20)
+    skill_ids: list[str] = Field(default_factory=list, max_length=20)
+
+
+class AutomationResearchResponse(BaseModel):
+    run_id: str
+    ai_execution_id: uuid.UUID
+    task_id: str
+    task_url: str
+    status: str
+    idempotent_replay: bool
 
 
 class AIInsightResponse(BaseModel):
@@ -289,7 +311,9 @@ class AIInsightResponse(BaseModel):
     source_name: str
     observation_id: uuid.UUID | None
     crawl_job_id: uuid.UUID | None
+    ai_execution_id: uuid.UUID | None
     kind: str
+
     model: str
     prompt_version: str
     content: str
@@ -339,3 +363,20 @@ class AIChatStreamEvent(BaseModel):
     content: str | None = None
     model: str | None = None
     total_duration_ms: int | None = None
+
+
+class AIModelDescriptorResponse(BaseModel):
+    provider: str
+    model: str
+    identifier: str
+    execution_mode: str
+    task_classes: list[str]
+    enabled: bool
+    configured: bool
+    external: bool
+
+
+class AIModelRegistryResponse(BaseModel):
+    policy_version: str
+    allow_route_hints: bool
+    models: list[AIModelDescriptorResponse]

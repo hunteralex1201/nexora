@@ -1,0 +1,96 @@
+name: nexora-openclaw-review
+
+services:
+  approval-gate:
+    image: busybox:1.37.0
+    profiles: [openclaw-review]
+    restart: 'no'
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      NEXORA_OPENCLAW_APPROVED: ${NEXORA_OPENCLAW_APPROVED:-}
+      OPENCLAW_IMAGE: ${OPENCLAW_IMAGE:-}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        test "$${NEXORA_OPENCLAW_APPROVED}" = "CHANGE_RECORD_APPROVED"
+        case "$${OPENCLAW_IMAGE}" in
+          ghcr.io/openclaw/openclaw:*@sha256:*) ;;
+          *) echo "OPENCLAW_IMAGE must use the official GHCR registry, a stable version tag, and an immutable sha256 digest" >&2; exit 64 ;;
+        esac
+        case "$${OPENCLAW_IMAGE}" in
+          *:latest@*|*:main@*|*:extended-stable@*|*-beta.*@*|*-dev.*@*)
+            echo "Floating, beta, and development image tags are forbidden" >&2
+            exit 64
+            ;;
+        esac
+        test "$${#OPENCLAW_GATEWAY_TOKEN}" -ge 32
+        echo "OpenClaw review gate passed"
+
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:?Set an official stable tag plus immutable digest after approval}
+    profiles: [openclaw-review]
+    restart: 'no'
+    init: true
+    depends_on:
+      approval-gate:
+        condition: service_completed_successfully
+    environment:
+      HOME: /home/node
+      OPENCLAW_HOME: /home/node
+      OPENCLAW_STATE_DIR: /home/node/.openclaw
+      OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
+      OPENCLAW_CONFIG_DIR: /home/node/.openclaw
+      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:?Set a unique secret after approval}
+      OPENCLAW_DISABLE_BONJOUR: '1'
+      TZ: Asia/Dhaka
+    command:
+      - node
+      - dist/index.js
+      - gateway
+      - --bind
+      - lan
+      - --port
+      - '18789'
+    expose:
+      - '18789'
+    volumes:
+      - openclaw_review_state:/home/node/.openclaw
+      - ./openclaw.json:/home/node/.openclaw/openclaw.json:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+      - /var/tmp:rw,noexec,nosuid,nodev,size=64m
+      - /run:rw,noexec,nosuid,nodev,size=16m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    cpus: 2.0
+    mem_limit: 2g
+    mem_reservation: 512m
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - openclaw_review_internal
+
+networks:
+  openclaw_review_internal:
+    internal: true
+
+volumes:
+  openclaw_review_state:
