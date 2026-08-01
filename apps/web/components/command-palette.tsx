@@ -50,6 +50,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef(true);
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +86,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener('keydown', handleKeyDown);
-      previous?.focus();
+      if (restoreFocusRef.current) previous?.focus();
     };
   }, [onClose, open]);
 
@@ -101,6 +102,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   if (!open) return null;
 
   const productSearchHref = `/products?q=${encodeURIComponent(query.trim())}`;
+
+  function closeForNavigation() {
+    restoreFocusRef.current = false;
+    onClose();
+  }
 
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center px-3 pt-[10vh] sm:px-6 sm:pt-[14vh]">
@@ -132,6 +138,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             onKeyDown={(event) => {
               if (event.key !== 'Enter' || !query.trim()) return;
               event.preventDefault();
+              restoreFocusRef.current = false;
               flushSync(() => onClose());
               router.push(productSearchHref);
             }}
@@ -153,7 +160,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           {query.trim() ? (
             <Link
               href={productSearchHref}
-              onClick={onClose}
+              onClick={closeForNavigation}
               className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--blue)]/25 bg-[var(--blue)]/[0.08] px-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--blue)]/60"
             >
               <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--blue)]/12 text-[var(--blue)]">
@@ -183,7 +190,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 <Link
                   key={`${command.href}-${command.label}`}
                   href={command.href}
-                  onClick={onClose}
+                  onClick={closeForNavigation}
                   className="group flex min-h-[54px] items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--blue)]/60"
                 >
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.035] text-[var(--muted)] group-hover:border-[var(--blue)]/25 group-hover:text-[var(--blue)]">

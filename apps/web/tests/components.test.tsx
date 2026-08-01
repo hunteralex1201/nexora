@@ -69,7 +69,7 @@ describe('dashboard foundation components', () => {
 
   it('supports command search, modal focus containment, Escape, and Enter handoff', async () => {
     const user = userEvent.setup();
-    render(
+    const { rerender } = render(
       <AppShell>
         <p>Workspace content</p>
       </AppShell>,
@@ -94,9 +94,20 @@ describe('dashboard foundation components', () => {
       expect(
         screen.queryByRole('dialog', { name: 'NEXORA command palette' }),
       ).not.toBeInTheDocument();
+      expect(trigger).not.toHaveFocus();
     });
     await user.keyboard('{Enter}');
     expect(pushMock).toHaveBeenCalledWith('/products?q=unlisted%20item');
+    expect(screen.queryByRole('dialog', { name: 'NEXORA command palette' })).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    expect(screen.getByRole('dialog', { name: 'NEXORA command palette' })).toBeInTheDocument();
+    pathname = '/products';
+    rerender(
+      <AppShell>
+        <p>Workspace content</p>
+      </AppShell>,
+    );
     expect(screen.queryByRole('dialog', { name: 'NEXORA command palette' })).not.toBeInTheDocument();
   });
 

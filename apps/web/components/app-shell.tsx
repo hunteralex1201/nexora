@@ -90,9 +90,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteRoute, setPaletteRoute] = useState<string | null>(null);
   const pageTitle = pageTitles[pathname] ?? 'Workspace';
-  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const paletteOpen = paletteRoute === pathname;
+  const closePalette = useCallback(() => setPaletteRoute(null), []);
+  const openPalette = useCallback(() => setPaletteRoute(pathname), [pathname]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -106,14 +108,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     function handleGlobalShortcut(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        setPaletteOpen((current) => !current);
+        setPaletteRoute((current) => (current === pathname ? null : pathname));
       }
       if (event.key === 'Escape') setNavigationOpen(false);
     }
 
     window.addEventListener('keydown', handleGlobalShortcut);
     return () => window.removeEventListener('keydown', handleGlobalShortcut);
-  }, []);
+  }, [pathname]);
 
   function toggleSidebar() {
     setSidebarCollapsed((current) => {
@@ -290,7 +292,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <button
             type="button"
-            onClick={() => setPaletteOpen(true)}
+            onClick={openPalette}
             className="group mx-auto flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.09] bg-white/[0.035] px-3 text-left text-[12px] text-[var(--faint)] hover:border-white/[0.15] hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--blue)]/60 sm:max-w-xl"
             aria-label="Open command palette"
           >
