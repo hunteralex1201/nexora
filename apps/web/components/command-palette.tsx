@@ -21,6 +21,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 const commands = [
   { href: '/overview', label: 'Open overview', hint: 'Executive status', icon: Gauge },
@@ -131,8 +132,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             onKeyDown={(event) => {
               if (event.key !== 'Enter' || !query.trim()) return;
               event.preventDefault();
+              flushSync(() => onClose());
               router.push(productSearchHref);
-              onClose();
             }}
             placeholder="Navigate or search product evidence…"
             aria-label="Search commands"

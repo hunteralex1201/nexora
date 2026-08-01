@@ -90,6 +90,11 @@ describe('dashboard foundation components', () => {
     const reopenedSearch = screen.getByRole('textbox', { name: 'Search commands' });
     await user.type(reopenedSearch, 'unlisted item');
     expect(screen.getByRole('status')).toHaveTextContent('No workspace commands match');
+    pushMock.mockImplementationOnce(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'NEXORA command palette' }),
+      ).not.toBeInTheDocument();
+    });
     await user.keyboard('{Enter}');
     expect(pushMock).toHaveBeenCalledWith('/products?q=unlisted%20item');
     expect(screen.queryByRole('dialog', { name: 'NEXORA command palette' })).not.toBeInTheDocument();
